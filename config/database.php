@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/secrets.php';
+loadSecrets();
+
 // Production error handling
 $isProduction = ($_SERVER['SERVER_NAME'] === 'bustracking.kesug.com' || (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'kesug.com') !== false))
     || getenv('APP_ENV') === 'production';
