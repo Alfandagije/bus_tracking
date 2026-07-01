@@ -71,7 +71,7 @@ CREATE TABLE sms_logs (
 
 -- Insert default admin user (password: admin123)
 INSERT INTO users (full_name, email, phone, password, role) VALUES
-('System Admin', 'admin@bus.com', '+250788000000', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin');
+('System Admin', 'admin@bus.com', '+250788000000', '$2y$10$z0XedUA97boWTZGCK7541.thamvg9iZucKaGTLgntBMzAMd.CZ2GO', 'admin');
 
 -- Insert default buses
 INSERT INTO buses (bus_code, bus_name, total_seats, current_lat, current_lng) VALUES
