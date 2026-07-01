@@ -3,19 +3,24 @@
 
     ESP32-WROOM-32 + SIM900 + GPS + IR SEATS
 
-    FEATURES:
-    v Real-time GPS tracking
-    v Multi-bus support
-    v Seat monitoring (4 seats)
-    v PHP/MySQL backend integration
-    v SMS ticket delivery from database
-    v SIM900 GPRS HTTP communication
-    v Automatic reconnect system
+    ARCHITECTURE:
+    v WiFi (ESP32 built-in) → HTTPS → Render API (GPS + seat data)
+    v SIM900 → GPS module (serial NMEA) + SMS delivery
 ********************************************************************/
 
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <HTTPClient.h>
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
 #include <ArduinoJson.h>
+
+/********************************************************************
+                    WIFI CREDENTIALS — SET THESE
+********************************************************************/
+
+const char* WIFI_SSID = "YourWiFiName";
+const char* WIFI_PASS = "YourWiFiPassword";
 
 /********************************************************************
                     HARDWARE CONFIG
@@ -45,20 +50,16 @@ TinyGPSPlus gps;
 ********************************************************************/
 
 String BUS_ID = "BUS001";
-String APN = "internet";
 
 /********************************************************************
                     SERVER ENDPOINTS
 ********************************************************************/
 
-// Render deployment URL (HTTP only — SIM900 does not support HTTPS)
-// NOTE: Render redirects HTTP → HTTPS; see HTTPS workaround notes below.
+const char* SERVER = "https://bus-tracking-system.onrender.com";
 
-String SERVER = "bus-tracking-system.onrender.com";
-
-String URL_UPDATE  = "http://" + SERVER + "/api/update.php";
-String URL_SMS     = "http://" + SERVER + "/api/get_pending_sms.php";
-String URL_CONFIRM = "http://" + SERVER + "/api/confirm_sms.php";
+String URL_UPDATE  = String(SERVER) + "/api/update.php";
+String URL_SMS     = String(SERVER) + "/api/get_pending_sms.php";
+String URL_CONFIRM = String(SERVER) + "/api/confirm_sms.php";
 
 /********************************************************************
                     GLOBAL VARIABLES
@@ -69,7 +70,7 @@ String lng = "0.0";
 
 int seat1, seat2, seat3, seat4;
 
-bool gprsReady = false;
+bool wifiConnected = false;
 
 /********************************************************************
                     SETUP
@@ -89,6 +90,7 @@ void setup()
 
     delay(3000);
 
+    initWiFi();
     initSIM900();
 
     Serial.println("SYSTEM READY");
@@ -103,11 +105,11 @@ void loop()
     readGPS();
     readSeats();
 
-    if (!gprsReady) {
-        reconnectGPRS();
+    if (WiFi.status() != WL_CONNECTED) {
+        reconnectWiFi();
     }
 
-    if (gprsReady) {
+    if (wifiConnected) {
         sendBusData();
         checkPendingSMS();
     }
@@ -149,7 +151,7 @@ void readSeats()
 
 void initSIM900()
 {
-    Serial.println("[SIM900] Initializing...");
+    Serial.println("[SIM900] Initializing for GPS + SMS...");
 
     sendAT("AT", 2000);
     sendAT("ATE0", 1000);
@@ -157,14 +159,13 @@ void initSIM900()
     // Check SIM ready
     if (!checkSIM()) return;
 
-    // Check network registration
+    // Check network registration (required for SMS)
     if (!waitForNetwork()) return;
 
     // Signal quality
     checkSignal();
 
-    // Setup GPRS bearer
-    setupGPRS();
+    Serial.println("[SIM900] Ready (GPS + SMS only)");
 }
 
 bool checkSIM()
@@ -197,32 +198,6 @@ void checkSignal()
 {
     String r = sendAT("AT+CSQ", 2000);
     Serial.println("[SIG] " + r);
-}
-
-void setupGPRS()
-{
-    Serial.println("[GPRS] Setting up bearer...");
-
-    sendAT("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"", 2000);
-
-    String cmd = "AT+SAPBR=3,1,\"APN\",\"" + APN + "\"";
-    sendAT(cmd, 2000);
-
-    String resp = sendAT("AT+SAPBR=1,1", 15000);
-    if (resp.indexOf("OK") >= 0) {
-        Serial.println("[GPRS] Bearer active");
-        gprsReady = true;
-    } else {
-        // Could be already active — check status
-        String stat = sendAT("AT+SAPBR=2,1", 3000);
-        if (stat.indexOf("+SAPBR: 1,1,") >= 0) {
-            Serial.println("[GPRS] Bearer already active");
-            gprsReady = true;
-        } else {
-            Serial.println("[GPRS] Bearer activation failed");
-            gprsReady = false;
-        }
-    }
 }
 
 /********************************************************************
@@ -296,42 +271,31 @@ void sendBusData()
 }
 
 /********************************************************************
-                    HTTP GET VIA SIM900
+                    HTTPS GET VIA ESP32 WIFI
 ********************************************************************/
 
 String httpGET(String url)
 {
-    if (!gprsReady) return "";
+    if (WiFi.status() != WL_CONNECTED) return "";
+
+    WiFiClientSecure client;
+    client.setInsecure();   // Skip SSL cert verification (bus data, not sensitive)
+
+    HTTPClient http;
+    http.begin(client, url);
+
+    int httpCode = http.GET();
     String response = "";
 
-    // Try setting URL directly (reuses existing HTTP session if alive)
-    String cmd = "AT+HTTPPARA=\"URL\",\"" + url + "\"";
-    String r = sendAT(cmd, 2000);
-
-    if (r.indexOf("ERROR") >= 0) {
-        // Session dead — full re-init
-        sendAT("AT+HTTPTERM", 1000);
-        delay(500);
-
-        r = sendAT("AT+HTTPINIT", 4000);
-        if (r.indexOf("ERROR") >= 0) {
-            Serial.println("[HTTP] Init failed, reconnecting GPRS...");
-            reconnectGPRS();
-            if (!gprsReady) return "";
-            r = sendAT("AT+HTTPINIT", 4000);
-            if (r.indexOf("ERROR") >= 0) return "";
-        }
-
-        sendAT("AT+HTTPPARA=\"CID\",1", 1000);
-        sendAT(cmd, 2000);
+    if (httpCode > 0) {
+        response = http.getString();
+        response.trim();
+        Serial.println("[HTTPS] " + String(httpCode) + " " + response.substring(0, 100));
+    } else {
+        Serial.println("[HTTPS] Request failed: " + String(httpCode));
     }
 
-    // Execute GET
-    sendAT("AT+HTTPACTION=0", 8000);
-
-    // Read response
-    response = sendAT("AT+HTTPREAD", 3000);
-
+    http.end();
     return response;
 }
 
@@ -400,28 +364,50 @@ void confirmSMS(String ticket_id)
 }
 
 /********************************************************************
-                    AUTO GPRS RECOVERY
+                    WIFI CONNECTION
 ********************************************************************/
 
-void reconnectGPRS()
+void initWiFi()
 {
-    Serial.println("[RECONNECT] GPRS bearer...");
-    gprsReady = false;
+    Serial.print("[WiFi] Connecting to ");
+    Serial.print(WIFI_SSID);
 
-    sendAT("AT+HTTPTERM", 1000);
-    delay(300);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
 
-    // Check if network is still registered
-    String r = sendAT("AT+CREG?", 2000);
-    if (r.indexOf("+CREG: 0,1") < 0 && r.indexOf("+CREG: 0,5") < 0) {
-        Serial.println("[RECONNECT] Network lost, re-registering...");
-        sendAT("AT+CFUN=1,1", 5000);
-        delay(10000);
-        if (!waitForNetwork()) {
-            return;
-        }
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+        delay(500);
+        Serial.print(".");
+        attempts++;
     }
 
-    // Retry GPRS attach
-    setupGPRS();
+    if (WiFi.status() == WL_CONNECTED) {
+        wifiConnected = true;
+        Serial.println();
+        Serial.print("[WiFi] Connected. IP: ");
+        Serial.println(WiFi.localIP());
+    } else {
+        wifiConnected = false;
+        Serial.println();
+        Serial.println("[WiFi] Connection failed!");
+    }
+}
+
+void reconnectWiFi()
+{
+    Serial.println("[WiFi] Reconnecting...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+
+    int attempts = 0;
+    while (WiFi.status() != WL_CONNECTED && attempts < 30) {
+        delay(500);
+        attempts++;
+    }
+
+    wifiConnected = (WiFi.status() == WL_CONNECTED);
+    if (wifiConnected) {
+        Serial.println("[WiFi] Reconnected");
+    }
 }
