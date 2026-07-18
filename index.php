@@ -273,6 +273,9 @@ async function loadSeats(busCode) {
             document.getElementById('busStatus').innerHTML = `<span class="badge badge-success">Active</span>`;
             document.getElementById('lastUpdate').textContent = bus.last_update || 'Just now';
 
+            if (parseFloat(bus.current_lat)) {
+                map.panTo({ lat: parseFloat(bus.current_lat), lng: parseFloat(bus.current_lng) });
+            }
         }
 
         if (seatsData.status === 'success') {
@@ -385,6 +388,7 @@ async function refreshSelectedBus() {
             document.getElementById('lastUpdate').textContent = bus.last_update || 'Just now';
 
             if (lat && lng) {
+                map.panTo({ lat, lng });
                 if (markers[currentBusCode]) {
                     smoothMoveGoogleMarker(markers[currentBusCode], lat, lng, currentBusCode);
                     markers[currentBusCode].setIcon({
