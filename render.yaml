@@ -2,7 +2,7 @@ services:
   - type: web
     name: bus-tracking-system
     runtime: php
-    repo: https://github.com/ITinnocento-max/bus-tracking-system
+    repo: https://github.com/YOUR_GITHUB_USERNAME/bus-tracking-system
     plan: free
     region: oregon
     buildCommand: composer install --no-dev --optimize-autoloader
@@ -11,13 +11,13 @@ services:
       - key: APP_ENV
         value: production
       - key: DB_HOST
-        sync: false
+        value: mysql-371a3625-alfredndagijimana8-07e1.i.aivencloud.com
       - key: DB_PORT
-        value: "15928"
+        value: "23730"
       - key: DB_NAME
-        sync: false
+        value: defaultdb
       - key: DB_USER
-        sync: false
+        value: avnadmin
       - key: DB_PASSWORD
         sync: false
       - key: DB_SSL_CA

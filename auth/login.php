@@ -17,7 +17,7 @@
             <form id="loginForm" class="auth-form">
                 <div class="form-group">
                     <label>Email</label>
-                    <input type="email" name="email" required placeholder="john@example.com">
+                    <input type="email" name="email" required placeholder="alfa@example.com">
                 </div>
                 <div class="form-group">
                     <label>Password</label>

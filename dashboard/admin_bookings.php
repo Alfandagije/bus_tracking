@@ -57,17 +57,38 @@ if ($db) {
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="admin-content">
         <h2 style="margin-bottom:24px;"><img src="../assets/icons/ticket.svg" class="icon"> All Bookings</h2>
+        
+        <div id="alertMessage" class="message" style="margin-bottom: 20px;"></div>
+
         <div class="card">
+            <!-- Bulk Actions Bar -->
+            <div class="bulk-actions-bar" id="bulkActionsBar">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-weight:600;"><span id="selectedCount">0</span> bookings selected</span>
+                </div>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <select id="bulkStatusSelect" class="status-select">
+                        <option value="">Change status to...</option>
+                        <option value="paid">Paid (Confirm Payment)</option>
+                        <option value="pending">Pending</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary" onclick="applyBulkAction()">Apply</button>
+                </div>
+            </div>
+
             <div class="table-container">
                 <table>
                     <thead><tr>
+                        <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAllCheckbox" style="cursor:pointer; transform: scale(1.1);"></th>
                         <th>ID</th><th>Passenger</th><th>Email</th><th>Phone</th><th>Bus</th><th>Seat</th><th>Date</th><th>Status</th><th>Payment</th><th>SMS</th><th>Booked</th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($bookings as $b): 
-                            $sc = $b['status'] === 'paid' ? 'badge-success' : ($b['status'] === 'pending' ? 'badge-warning' : 'badge-danger');
+                            $scClass = $b['status'] === 'paid' ? 'paid' : ($b['status'] === 'pending' ? 'pending' : 'cancelled');
                         ?>
                         <tr>
+                            <td style="text-align: center;"><input type="checkbox" class="booking-checkbox" value="<?= sec($b['id']) ?>" style="cursor:pointer; transform: scale(1.1);"></td>
                             <td>#<?= sec($b['id']) ?></td>
                             <td><?= sec($b['full_name']) ?></td>
                             <td style="font-size:0.8rem;"><?= sec($b['email']) ?></td>
@@ -75,8 +96,21 @@ if ($db) {
                             <td><?= sec($b['bus_code']) ?></td>
                             <td><?= sec($b['seat_number']) ?></td>
                             <td><?= sec($b['booking_date']) ?></td>
-                            <td><span class="badge <?= sec($sc) ?>"><?= sec($b['status']) ?></span></td>
-                            <td><?= sec($b['payment_method'] ?? '-') ?></td>
+                            <td>
+                                <select class="status-select <?= sec($scClass) ?>" data-id="<?= sec($b['id']) ?>" onchange="updateSingleStatus(<?= sec($b['id']) ?>, this.value, this)" style="font-size: 0.75rem; padding: 2px 6px;">
+                                    <option value="pending" <?= $b['status'] === 'pending' ? 'selected' : '' ?>>Pending</option>
+                                    <option value="paid" <?= $b['status'] === 'paid' ? 'selected' : '' ?>>Paid</option>
+                                    <option value="cancelled" <?= $b['status'] === 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                                </select>
+                            </td>
+                            <td>
+                                <div style="display:flex; align-items:center; gap:6px; flex-wrap: nowrap;">
+                                    <span><?= sec($b['payment_method'] ?? '-') ?></span>
+                                    <?php if ($b['status'] === 'pending'): ?>
+                                        <button class="btn btn-sm btn-success" style="padding: 2px 6px; font-size: 0.65rem; border-radius: 4px;" onclick="confirmSinglePayment(<?= sec($b['id']) ?>)">Confirm</button>
+                                    <?php endif; ?>
+                                </div>
+                            </td>
                             <td><?= $b['sms_sent'] ? '<span class="badge badge-success">Sent</span>' : '<span class="badge badge-warning">Pending</span>' ?></td>
                             <td style="font-size:0.8rem;"><?= sec($b['created_at']) ?></td>
                         </tr>
@@ -87,7 +121,119 @@ if ($db) {
         </div>
     </div>
 </div>
+
 <script>
+// Select All checkbox logic
+const selectAll = document.getElementById('selectAllCheckbox');
+const checkboxes = document.getElementsByClassName('booking-checkbox');
+const bulkBar = document.getElementById('bulkActionsBar');
+const selectedCount = document.getElementById('selectedCount');
+
+function updateBulkBar() {
+    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+    selectedCount.textContent = checked.length;
+    if (checked.length > 0) {
+        bulkBar.style.display = 'flex';
+    } else {
+        bulkBar.style.display = 'none';
+    }
+}
+
+if (selectAll) {
+    selectAll.addEventListener('change', function() {
+        for (let cb of checkboxes) {
+            cb.checked = this.checked;
+        }
+        updateBulkBar();
+    });
+}
+
+document.addEventListener('change', function(e) {
+    if (e.target && e.target.classList.contains('booking-checkbox')) {
+        updateBulkBar();
+        // If one is unchecked, uncheck select all
+        if (!e.target.checked) {
+            selectAll.checked = false;
+        } else {
+            // Check if all are checked
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            selectAll.checked = allChecked;
+        }
+    }
+});
+
+function showAlert(message, type) {
+    const alertBox = document.getElementById('alertMessage');
+    alertBox.textContent = message;
+    alertBox.className = 'message ' + type;
+    alertBox.style.display = 'block';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function sendStatusUpdate(bookingIds, status, paymentMethod = '') {
+    try {
+        const response = await fetch('../api/admin_update_booking_status.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                booking_ids: bookingIds,
+                status: status,
+                payment_method: paymentMethod
+            })
+        });
+        const result = await response.json();
+        if (result.status === 'success') {
+            showAlert(result.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else if (result.status === 'warning') {
+            let errorMsg = result.message + '\n' + result.errors.join('\n');
+            showAlert(errorMsg, 'error');
+            setTimeout(() => location.reload(), 3000);
+        } else {
+            showAlert(result.message || 'Update failed', 'error');
+            setTimeout(() => location.reload(), 3000);
+        }
+    } catch (err) {
+        showAlert('Network error: ' + err.message, 'error');
+    }
+}
+
+function updateSingleStatus(bookingId, status, selectElement) {
+    if (confirm(`Change status of Booking #${bookingId} to ${status}?`)) {
+        sendStatusUpdate([bookingId], status);
+    } else {
+        // Reset select to previous status style class
+        location.reload();
+    }
+}
+
+function confirmSinglePayment(bookingId) {
+    if (confirm(`Confirm payment for Booking #${bookingId}?`)) {
+        sendStatusUpdate([bookingId], 'paid', 'Confirmed by Admin');
+    }
+}
+
+function applyBulkAction() {
+    const statusSelect = document.getElementById('bulkStatusSelect');
+    const status = statusSelect.value;
+    if (!status) {
+        alert('Please select a target status.');
+        return;
+    }
+    const checkedIds = Array.from(checkboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+
+    if (checkedIds.length === 0) {
+        alert('No bookings selected.');
+        return;
+    }
+
+    if (confirm(`Change status of ${checkedIds.length} selected bookings to ${status}?`)) {
+        sendStatusUpdate(checkedIds, status);
+    }
+}
+
 document.getElementById('hamburger')?.addEventListener('click', function() {
     this.classList.toggle('active');
     document.getElementById('navLinks').classList.toggle('open');

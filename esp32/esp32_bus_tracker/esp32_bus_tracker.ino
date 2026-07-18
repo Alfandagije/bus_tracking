@@ -55,7 +55,7 @@ String BUS_ID = "BUS001";
                     SERVER ENDPOINTS
 ********************************************************************/
 
-const char* SERVER = "https://bus-tracking-system-q85x.onrender.com";
+const char* SERVER = "https://bus-tracking-tbyl.onrender.com";
 
 String URL_UPDATE  = String(SERVER) + "/api/update.php";
 String URL_SMS     = String(SERVER) + "/api/get_pending_sms.php";

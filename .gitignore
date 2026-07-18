@@ -11,6 +11,9 @@ NUL
 *.swo
 *~
 
+# DBeaver project config (contains DB credentials)
+.dbeaver/
+
 # Environment
 .env
 .env.local
