@@ -21,6 +21,8 @@ CREATE TABLE buses (
     bus_code VARCHAR(20) UNIQUE NOT NULL,
     bus_name VARCHAR(100) NOT NULL,
     total_seats INT DEFAULT 30,
+    fare DECIMAL(10,2) DEFAULT 500.00,
+    driver_id INT DEFAULT NULL,
     current_lat DECIMAL(10, 7) DEFAULT 0.0000000,
     current_lng DECIMAL(10, 7) DEFAULT 0.0000000,
     status ENUM('active', 'inactive', 'maintenance') DEFAULT 'active',
@@ -50,6 +52,7 @@ CREATE TABLE bookings (
     status ENUM('pending', 'paid', 'cancelled') DEFAULT 'pending',
     payment_method VARCHAR(50) DEFAULT NULL,
     payment_ref VARCHAR(100) DEFAULT NULL,
+    amount DECIMAL(10,2) DEFAULT 500.00,
     sms_sent TINYINT(1) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -67,6 +70,37 @@ CREATE TABLE sms_logs (
     sent_at TIMESTAMP NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Drivers table
+CREATE TABLE drivers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    license_number VARCHAR(50) UNIQUE NOT NULL,
+    assigned_bus_id INT DEFAULT NULL,
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (assigned_bus_id) REFERENCES buses(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+-- Payments table
+CREATE TABLE payments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    user_id INT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    currency VARCHAR(10) DEFAULT 'RWF',
+    payment_method VARCHAR(50) DEFAULT 'MTN_MoMo',
+    transaction_id VARCHAR(100) DEFAULT NULL,
+    momo_ref VARCHAR(100) DEFAULT NULL,
+    status ENUM('pending', 'successful', 'failed', 'reversed') DEFAULT 'pending',
+    payer_phone VARCHAR(20) DEFAULT NULL,
+    api_response TEXT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- Insert default admin user (password: admin123)

@@ -4,7 +4,8 @@
     "type": "project",
     "require": {
         "php": ">=8.0",
-        "ext-pdo_mysql": "*"
+        "ext-pdo_mysql": "*",
+        "tecnickcom/tcpdf": "^6.7"
     },
     "scripts": {
         "post-install-cmd": [

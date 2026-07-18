@@ -50,9 +50,12 @@ if ($db) {
         <h3>Admin Panel</h3>
         <a href="index.php"><img src="../assets/icons/chart.svg" class="icon"> Dashboard</a>
         <a href="admin_buses.php"><img src="../assets/icons/bus.svg" class="icon"> Buses</a>
+        <a href="admin_drivers.php"><img src="../assets/icons/user.svg" class="icon"> Drivers</a>
         <a href="admin_bookings.php"><img src="../assets/icons/ticket.svg" class="icon"> Bookings</a>
+        <a href="admin_payments.php"><img src="../assets/icons/ticket.svg" class="icon"> Payments</a>
         <a href="admin_sms_logs.php"><img src="../assets/icons/mail.svg" class="icon"> SMS Logs</a>
         <a href="admin_passengers.php" class="active"><img src="../assets/icons/users.svg" class="icon"> Passengers</a>
+        <a href="admin_reports.php"><img src="../assets/icons/chart.svg" class="icon"> Reports</a>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="admin-content">

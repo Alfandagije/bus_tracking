@@ -48,7 +48,7 @@
                 <div class="booking-steps">
                     <div class="step active" id="step1">1. Select Bus</div>
                     <div class="step" id="step2">2. Choose Seat</div>
-                    <div class="step" id="step3">3. Confirm</div>
+                    <div class="step" id="step3">3. Pay & Confirm</div>
                 </div>
 
                 <div id="step1Content">
@@ -74,6 +74,21 @@
 
                 <div id="step3Content" style="display:none;">
                     <div id="bookingResult" class="text-center"></div>
+                    <div id="paymentSection" style="display:none;margin-top:16px;">
+                        <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin-bottom:16px;">
+                            <h3 style="margin-bottom:8px;">Pay with MTN MoMo</h3>
+                            <p style="color:var(--gray-500);font-size:0.875rem;margin-bottom:12px;">Enter your MTN mobile money number to complete payment.</p>
+                            <div style="margin-bottom:12px;">
+                                <label style="font-weight:600;font-size:0.875rem;display:block;margin-bottom:4px;">Phone Number</label>
+                                <input type="tel" id="momoPhone" placeholder="+250788123456" value="<?= htmlspecialchars($_SESSION['phone'] ?? '') ?>" style="width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:6px;font-size:1rem;">
+                            </div>
+                            <div style="display:flex;gap:8px;">
+                                <button id="payMomoBtn" class="btn btn-primary" onclick="payWithMomo()" style="flex:1;">Pay with MTN MoMo</button>
+                                <button class="btn" style="background:var(--gray-100);" onclick="skipPayment()">Pay Later</button>
+                            </div>
+                        </div>
+                        <div id="paymentStatus" style="display:none;"></div>
+                    </div>
                 </div>
             <?php endif; ?>
         </div>
@@ -183,14 +198,108 @@ document.getElementById('bookBusSelector').addEventListener('change', function()
     }
 });
 
-document.getElementById('confirmBookingBtn').addEventListener('click', async function() {
+let lastBookingId = null;
+
+async function payWithMomo() {
+    const phone = document.getElementById('momoPhone').value.trim();
+    if (!phone) { alert('Please enter your MTN MoMo number'); return; }
+    
+    const btn = document.getElementById('payMomoBtn');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    
+    try {
+        const res = await fetch('api/momo_payment.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ booking_id: lastBookingId, phone: phone })
+        });
+        const result = await res.json();
+        
+        const statusDiv = document.getElementById('paymentStatus');
+        statusDiv.style.display = 'block';
+        
+        if (result.status === 'success') {
+            statusDiv.innerHTML = '<div style="background:#dcfce7;border:1px solid #86efac;border-radius:8px;padding:12px;"><strong>Payment Initiated!</strong><br>' + esc(result.message) + '</div>';
+            if (result.transaction_id) {
+                checkPaymentStatus(lastBookingId);
+            }
+        } else {
+            statusDiv.innerHTML = '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px;"><strong>Payment Failed</strong><br>' + esc(result.message) + '</div>';
+            btn.disabled = false;
+            btn.textContent = 'Retry Payment';
+        }
+    } catch (err) {
+        alert('Network error. Please try again.');
+        btn.disabled = false;
+        btn.textContent = 'Pay with MTN MoMo';
+    }
+}
+
+function skipPayment() {
+    document.getElementById('paymentSection').style.display = 'none';
+    document.getElementById('bookingResult').innerHTML = `
+        <div style="margin-bottom:16px;"><img src="assets/icons/check.svg" class="icon-xl"></div>
+        <h3 style="margin-bottom:8px;">Booking Created!</h3>
+        <p style="color:var(--gray-500);margin-bottom:12px;">Payment will be collected by the driver.</p>
+        <div class="bus-info-card" style="justify-content:center;">
+            <div><img src="assets/icons/bus.svg" class="icon" style="vertical-align:middle;"> ${esc(selectedBusCode)}</div>
+            <div><img src="assets/icons/seat.svg" class="icon" style="vertical-align:middle;"> Seat ${esc(selectedSeat)}</div>
+            <div><img src="assets/icons/ticket.svg" class="icon" style="vertical-align:middle;"> #${esc(lastBookingId)}</div>
+        </div>
+        <div style="margin-top:20px;">
+            <a href="my_bookings.php" class="btn btn-primary">View My Bookings</a>
+            <a href="booking.php" class="btn" style="background:var(--gray-100);margin-left:8px;">Book Another</a>
+        </div>
+    `;
+}
+
+async function checkPaymentStatus(bookingId) {
+    let attempts = 0;
+    const maxAttempts = 20;
+    const interval = setInterval(async () => {
+        attempts++;
+        if (attempts > maxAttempts) { clearInterval(interval); return; }
+        try {
+            const res = await fetch(`api/momo_check_status.php?booking_id=${bookingId}`);
+            const data = await res.json();
+            if (data.status === 'success' && data.data) {
+                if (data.data.status === 'successful') {
+                    clearInterval(interval);
+                    document.getElementById('paymentSection').style.display = 'none';
+                    document.getElementById('bookingResult').innerHTML = `
+                        <div style="margin-bottom:16px;"><img src="assets/icons/check.svg" class="icon-xl"></div>
+                        <h3 style="margin-bottom:8px;">Payment Confirmed!</h3>
+                        <p style="color:var(--gray-500);margin-bottom:12px;">Your payment of RWF ${data.data.amount} via MTN MoMo has been confirmed.</p>
+                        <div class="bus-info-card" style="justify-content:center;">
+                            <div><img src="assets/icons/bus.svg" class="icon" style="vertical-align:middle;"> ${esc(selectedBusCode)}</div>
+                            <div><img src="assets/icons/seat.svg" class="icon" style="vertical-align:middle;"> Seat ${esc(selectedSeat)}</div>
+                            <div><img src="assets/icons/ticket.svg" class="icon" style="vertical-align:middle;"> #${esc(bookingId)}</div>
+                        </div>
+                        <div style="margin-top:20px;">
+                            <a href="my_bookings.php" class="btn btn-primary">View My Bookings</a>
+                            <a href="booking.php" class="btn" style="background:var(--gray-100);margin-left:8px;">Book Another</a>
+                        </div>
+                    `;
+                } else if (data.data.status === 'failed') {
+                    clearInterval(interval);
+                    document.getElementById('paymentStatus').innerHTML = '<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px;"><strong>Payment Failed</strong><br>The payment was not completed. Please try again.</div>';
+                    document.getElementById('payMomoBtn').disabled = false;
+                    document.getElementById('payMomoBtn').textContent = 'Retry Payment';
+                }
+            }
+        } catch (e) {}
+    }, 3000);
+}
+
+async function confirmBookingAndPay() {
     if (!selectedSeat || !selectedBusCode) return;
-
     if (!confirm(`Book ${selectedBusCode} - Seat ${selectedSeat}?`)) return;
-
-    this.disabled = true;
-    this.textContent = 'Booking...';
-
+    
+    const btn = document.getElementById('confirmBookingBtn');
+    btn.disabled = true;
+    btn.textContent = 'Booking...';
+    
     try {
         const res = await fetch('api/book_seat.php', {
             method: 'POST',
@@ -198,29 +307,27 @@ document.getElementById('confirmBookingBtn').addEventListener('click', async fun
             body: JSON.stringify({ bus_code: selectedBusCode, seat_number: selectedSeat })
         });
         const result = await res.json();
-
+        
         document.getElementById('step2').classList.remove('active');
         document.getElementById('step2').classList.add('completed');
         document.getElementById('step3').classList.add('active');
         document.getElementById('step2Content').style.display = 'none';
         document.getElementById('step3Content').style.display = 'block';
-
+        
         const resultDiv = document.getElementById('bookingResult');
         if (result.status === 'success') {
+            lastBookingId = result.booking_id;
             resultDiv.innerHTML = `
                 <div style="margin-bottom:16px;"><img src="assets/icons/check.svg" class="icon-xl"></div>
-                <h3 style="margin-bottom:8px;">Booking Successful!</h3>
-                <p style="color:var(--gray-500);margin-bottom:20px;">${esc(result.message)}</p>
+                <h3 style="margin-bottom:8px;">Seat Reserved!</h3>
+                <p style="color:var(--gray-500);margin-bottom:12px;">Complete payment to confirm your booking.</p>
                 <div class="bus-info-card" style="justify-content:center;">
                     <div><img src="assets/icons/bus.svg" class="icon" style="vertical-align:middle;"> ${esc(selectedBusCode)}</div>
                     <div><img src="assets/icons/seat.svg" class="icon" style="vertical-align:middle;"> Seat ${esc(selectedSeat)}</div>
                     <div><img src="assets/icons/ticket.svg" class="icon" style="vertical-align:middle;"> #${esc(result.booking_id)}</div>
                 </div>
-                <div style="margin-top:20px;">
-                    <a href="my_bookings.php" class="btn btn-primary">View My Bookings</a>
-                    <a href="booking.php" class="btn" style="background:var(--gray-100);margin-left:8px;">Book Another</a>
-                </div>
             `;
+            document.getElementById('paymentSection').style.display = 'block';
         } else {
             resultDiv.innerHTML = `
                 <div style="margin-bottom:16px;"><img src="assets/icons/x.svg" class="icon-xl"></div>
@@ -233,10 +340,13 @@ document.getElementById('confirmBookingBtn').addEventListener('click', async fun
         }
     } catch (err) {
         alert('Network error');
-        this.disabled = false;
-        this.textContent = 'Confirm Booking';
+        const btn = document.getElementById('confirmBookingBtn');
+        btn.disabled = false;
+        btn.textContent = 'Confirm Booking';
     }
-});
+}
+
+document.getElementById('confirmBookingBtn').addEventListener('click', confirmBookingAndPay);
 
 loadBuses();
 </script>

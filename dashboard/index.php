@@ -54,9 +54,12 @@ if ($db) {
         <h3>Admin Panel</h3>
         <a href="index.php" class="active"><?= icon('chart') ?> Dashboard</a>
         <a href="admin_buses.php"><?= icon('bus') ?> Buses</a>
+        <a href="admin_drivers.php"><?= icon('user') ?> Drivers</a>
         <a href="admin_bookings.php"><?= icon('ticket') ?> Bookings</a>
+        <a href="admin_payments.php"><?= icon('ticket') ?> Payments</a>
         <a href="admin_sms_logs.php"><?= icon('mail') ?> SMS Logs</a>
         <a href="admin_passengers.php"><?= icon('users') ?> Passengers</a>
+        <a href="admin_reports.php"><?= icon('chart') ?> Reports</a>
     </div>
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
     <div class="admin-content">

@@ -26,7 +26,7 @@ try {
     $db->beginTransaction();
 
     // Get bus
-    $stmt = $db->prepare("SELECT id, bus_name FROM buses WHERE bus_code = ? AND status = 'active'");
+    $stmt = $db->prepare("SELECT id, bus_name, fare FROM buses WHERE bus_code = ? AND status = 'active'");
     $stmt->execute([$bus_code]);
     $bus = $stmt->fetch();
 
@@ -66,10 +66,10 @@ try {
 
     // Create booking
     $stmt = $db->prepare("
-        INSERT INTO bookings (user_id, bus_id, seat_id, booking_date, status, payment_method) 
-        VALUES (?, ?, ?, ?, 'pending', ?)
+        INSERT INTO bookings (user_id, bus_id, seat_id, booking_date, status, payment_method, amount) 
+        VALUES (?, ?, ?, ?, 'pending', ?, ?)
     ");
-    $stmt->execute([$_SESSION['user_id'], $bus['id'], $seat['id'], $booking_date, $payment_method]);
+    $stmt->execute([$_SESSION['user_id'], $bus['id'], $seat['id'], $booking_date, $payment_method, $bus['fare'] ?? 500]);
     $booking_id = $db->lastInsertId();
 
     // Create SMS log
@@ -77,7 +77,17 @@ try {
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
     
-    $message = "{$bus['bus_name']} Ticket confirmed. Seat {$seat_number}. Booking ID: {$booking_id}. Travel safe!";
+    $message = "🎫 BOOKING CONFIRMED\n";
+    $message .= "━━━━━━━━━━━━━━━━━\n";
+    $message .= "Bus: {$bus['bus_name']} ({$bus_code})\n";
+    $message .= "Seat: {$seat_number}\n";
+    $message .= "Booking ID: #{$booking_id}\n";
+    $message .= "Date: {$booking_date}\n";
+    $message .= "Amount: RWF " . number_format($bus['fare'] ?? 500) . "\n";
+    $message .= "Payment: MTN MoMo\n";
+    $message .= "━━━━━━━━━━━━━━━━━\n";
+    $message .= "Show this message to the driver.\n";
+    $message .= "Travel safe! 🚌";
     
     $stmt = $db->prepare("INSERT INTO sms_logs (booking_id, phone, message, status) VALUES (?, ?, ?, 'pending')");
     $stmt->execute([$booking_id, $user['phone'], $message]);
