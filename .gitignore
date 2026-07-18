@@ -56,3 +56,7 @@ cookies.txt
 esp32_simulator.php
 ngrok.zip
 *.zip
+
+# Composer
+vendor/
+composer.lock
