@@ -111,6 +111,7 @@ let map;
 let markers = {};
 let infoWindows = {};
 let animationFrames = {};
+let mapInitialized = false;
 const busColors = ['#1a73e8', '#ea4335', '#34a853', '#fbbc04', '#9334e6'];
 
 function getBusColor(busCode) {
@@ -228,8 +229,9 @@ async function updateMap() {
                 }
             });
 
-            if (hasCoords) {
+            if (hasCoords && !mapInitialized) {
                 map.fitBounds(bounds, 30);
+                mapInitialized = true;
             }
         }
     } catch (err) { console.error(err); }

@@ -93,9 +93,7 @@
 
         <div class="map-container">
             <div id="map"></div>
-            <button id="recenterBtn" class="btn btn-sm btn-primary" style="position:absolute;bottom:20px;right:20px;z-index:999;display:none;box-shadow:0 2px 8px rgba(0,0,0,0.3);">
-                Re-center
-            </button>
+
         </div>
     </div>
 </div>
@@ -108,7 +106,7 @@ let markers = {};
 let infoWindows = {};
 let currentBusCode = '';
 let animationFrames = {};
-let userZoomed = false;
+let initialFitDone = false;
 
 function initMap() {
     const kigali = { lat: -1.9441, lng: 30.0619 };
@@ -243,8 +241,9 @@ async function loadBuses() {
                 }
             });
 
-            if (!currentBusCode && hasValidCoords) {
+            if (!initialFitDone && !currentBusCode && hasValidCoords) {
                 map.fitBounds(bounds, 50);
+                initialFitDone = true;
             }
         }
     } catch (err) {
@@ -274,10 +273,6 @@ async function loadSeats(busCode) {
             document.getElementById('busStatus').innerHTML = `<span class="badge badge-success">Active</span>`;
             document.getElementById('lastUpdate').textContent = bus.last_update || 'Just now';
 
-            if (parseFloat(bus.current_lat)) {
-                map.setCenter({ lat: parseFloat(bus.current_lat), lng: parseFloat(bus.current_lng) });
-                map.setZoom(15);
-            }
         }
 
         if (seatsData.status === 'success') {
@@ -360,7 +355,6 @@ document.getElementById('busSelector').addEventListener('change', function() {
         markers[code].setZIndex(100);
     }
     currentBusCode = this.value;
-    userZoomed = false;
     if (currentBusCode) {
         document.getElementById('seatCard').style.display = 'block';
         loadSeats(currentBusCode);
@@ -370,8 +364,6 @@ document.getElementById('busSelector').addEventListener('change', function() {
     }
 });
 
-let selectedBusMarker = null;
-let selectedBusInfoWindow = null;
 
 async function refreshSelectedBus() {
     if (!currentBusCode) return;
@@ -393,22 +385,8 @@ async function refreshSelectedBus() {
             document.getElementById('lastUpdate').textContent = bus.last_update || 'Just now';
 
             if (lat && lng) {
-                // Always smooth-follow center on selected bus
-                const currentCenter = map.getCenter();
-                const target = { lat, lng };
-                const stepLat = (target.lat - currentCenter.lat()) * 0.15;
-                const stepLng = (target.lng - currentCenter.lng()) * 0.15;
-                map.setCenter({
-                    lat: currentCenter.lat() + stepLat,
-                    lng: currentCenter.lng() + stepLng
-                });
-                // Only auto-zoom if user hasn't manually zoomed
-                if (!userZoomed) {
-                    map.setZoom(16);
-                }
-
-                // Highlight selected bus marker
                 if (markers[currentBusCode]) {
+                    smoothMoveGoogleMarker(markers[currentBusCode], lat, lng, currentBusCode);
                     markers[currentBusCode].setIcon({
                         path: google.maps.SymbolPath.CIRCLE,
                         scale: 18,
@@ -474,20 +452,6 @@ setInterval(async () => {
     await refreshSelectedBus();
 }, 3000);
 
-// Re-center button — resets zoom to auto-follow
-document.getElementById('recenterBtn')?.addEventListener('click', function() {
-    userZoomed = false;
-    this.style.display = 'none';
-});
-
-// Track user zoom — disable auto-zoom, show re-center button
-map.addListener('zoom_changed', () => {
-    userZoomed = true;
-    if (currentBusCode) {
-        const btn = document.getElementById('recenterBtn');
-        if (btn) btn.style.display = 'block';
-    }
-});
 </script>
 <script>
 document.getElementById('hamburger')?.addEventListener('click', function() {
