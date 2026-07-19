@@ -1,14 +1,18 @@
 <?php
+session_start();
 require_once __DIR__ . '/../config/database.php';
 
 header('Content-Type: application/json');
 
-session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     jsonResponse(['status' => 'error', 'message' => 'Unauthorized'], 403);
 }
 
-$db = getDb();
+try {
+    $db = getDb();
+} catch (Exception $e) {
+    jsonResponse(['status' => 'error', 'message' => 'Database connection failed'], 500);
+}
 $report_type = $_GET['type'] ?? 'bookings';
 $date_from = $_GET['from'] ?? date('Y-m-01');
 $date_to = $_GET['to'] ?? date('Y-m-d');

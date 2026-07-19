@@ -1,13 +1,18 @@
 <?php
+session_start();
 require_once __DIR__ . '/../config/database.php';
 
-session_start();
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     http_response_code(403);
     exit('Unauthorized');
 }
 
-$db = getDb();
+try {
+    $db = getDb();
+} catch (Exception $e) {
+    http_response_code(500);
+    exit('Database connection failed');
+}
 $report_type = $_GET['type'] ?? 'bookings';
 $date_from = $_GET['from'] ?? date('Y-m-01');
 $date_to = $_GET['to'] ?? date('Y-m-d');
