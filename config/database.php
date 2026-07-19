@@ -64,7 +64,7 @@ class Database {
         $this->conn = null;
         try {
             $options = [
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8",
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci",
             ];
             if ($this->ssl_ca) {
                 $caPath = '/tmp/aiven-ca.pem';
