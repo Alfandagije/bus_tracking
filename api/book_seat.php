@@ -102,6 +102,9 @@ try {
         'seat_number' => $seat_number
     ], 201);
 } catch (Exception $e) {
-    $db->rollBack();
-    errorResponse('Booking failed');
+    if ($db) {
+        try { $db->rollBack(); } catch (Exception $re) {}
+    }
+    error_log('Booking error: ' . $e->getMessage());
+    errorResponse('Booking failed: ' . $e->getMessage());
 }

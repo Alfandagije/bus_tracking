@@ -1,7 +1,5 @@
 -- Migration v2: Drivers, Payments, MTN MoMo support
--- Run this after schema.sql
-
-USE bus_tracking_db;
+-- Run this after schema.sql (safe to re-run)
 
 -- Drivers table
 CREATE TABLE IF NOT EXISTS drivers (

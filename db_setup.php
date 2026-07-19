@@ -1,8 +1,4 @@
 <?php
-// Run once after deploying to Render to initialize the database
-// Access: https://your-app.onrender.com/db_setup.php
-// DELETE this file after successful setup!
-
 require_once __DIR__ . '/config/database.php';
 
 header('Content-Type: text/html; charset=utf-8');
@@ -16,7 +12,7 @@ if ($password !== 'setup2026') {
 try {
     $db = getDb();
 
-    $schema = file_get_contents(__DIR__ . '/sql/schema.sql');
+    $schema = file_get_contents(__DIR__ . '/sql/setup_phpmyadmin.sql');
 
     $statements = explode(';', $schema);
     $success = 0;
@@ -25,17 +21,29 @@ try {
     foreach ($statements as $stmt) {
         $stmt = trim($stmt);
         if (empty($stmt)) continue;
-        // Skip CREATE DATABASE and USE statements (Aiven has DB pre-created)
-        if (preg_match('/^(CREATE DATABASE|USE)/i', $stmt)) continue;
+        if (preg_match('/^(SET\s|--)/i', $stmt)) {
+            if (stripos($stmt, 'FOREIGN_KEY_CHECKS') !== false || stripos($stmt, '@') !== false || stripos($stmt, 'PREPARE') !== false || stripos($stmt, 'EXECUTE') !== false || stripos($stmt, 'DEALLOCATE') !== false) {
+                try {
+                    $db->exec($stmt);
+                    $success++;
+                } catch (PDOException $e) {
+                    $errors[] = htmlspecialchars(substr($stmt, 0, 80)) . '... &rarr; ' . htmlspecialchars($e->getMessage());
+                }
+            } else {
+                try { $db->exec($stmt); } catch (Exception $e) {}
+                $success++;
+            }
+            continue;
+        }
         try {
             $db->exec($stmt);
             $success++;
         } catch (PDOException $e) {
-            // Ignore "already exists" errors
-            if (stripos($e->getMessage(), 'already exists') === false) {
-                $errors[] = htmlspecialchars($stmt) . '<br>→ ' . htmlspecialchars($e->getMessage());
-            } else {
+            $msg = $e->getMessage();
+            if (stripos($msg, 'already exists') !== false || stripos($msg, 'Duplicate') !== false) {
                 $success++;
+            } else {
+                $errors[] = htmlspecialchars(substr($stmt, 0, 100)) . '... &rarr; ' . htmlspecialchars($msg);
             }
         }
     }
@@ -48,14 +56,19 @@ try {
         foreach ($errors as $e) echo "$e\n\n";
         echo "</pre>";
     } else {
-        echo "<p style='color:green;font-weight:bold;'>All tables created successfully!</p>";
+        echo "<p style='color:green;font-weight:bold;'>All tables created/updated successfully!</p>";
     }
 
-    // Show tables
     $tables = $db->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
     echo "<h3>Tables:</h3><ul>";
     foreach ($tables as $t) echo "<li>$t</li>";
     echo "</ul>";
+
+    echo "<h3>Table Columns:</h3>";
+    foreach ($tables as $t) {
+        $cols = $db->query("SHOW COLUMNS FROM `$t`")->fetchAll(PDO::FETCH_COLUMN);
+        echo "<p><strong>$t:</strong> " . implode(', ', $cols) . "</p>";
+    }
 
     echo "<p style='color:red;font-weight:bold;'>DELETE this file after use!</p>";
 
