@@ -12,33 +12,94 @@ $report_type = $_GET['type'] ?? 'bookings';
 $date_from = $_GET['from'] ?? date('Y-m-01');
 $date_to = $_GET['to'] ?? date('Y-m-d');
 $bus_code = $_GET['bus_code'] ?? '';
+$mode = $_GET['mode'] ?? 'download';
+
+if (!in_array($report_type, ['bookings', 'payments', 'drivers', 'summary'])) {
+    $report_type = 'bookings';
+}
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
 class BusReportPDF extends TCPDF {
+    public $reportTitle = 'Report';
+    public $dateFrom = '';
+    public $dateTo = '';
+    public $busCode = '';
+
     public function Header() {
-        $this->SetFont('helvetica', 'B', 16);
-        $this->Cell(0, 10, 'SmartBus Tracker - Report', 0, 1, 'C');
+        $this->SetFont('helvetica', 'B', 18);
+        $this->SetTextColor(26, 115, 232);
+        $this->Cell(0, 12, 'SmartBus Tracker', 0, 1, 'C');
+        $this->SetTextColor(0);
+        $this->SetFont('helvetica', 'B', 14);
+        $this->Cell(0, 10, $this->reportTitle, 0, 1, 'C');
         $this->SetFont('helvetica', '', 10);
+        $period = "Period: {$this->dateFrom} to {$this->dateTo}";
+        if ($this->busCode) $period .= " | Bus: {$this->busCode}";
+        $this->Cell(0, 6, $period, 0, 1, 'C');
         $this->Cell(0, 6, 'Generated: ' . date('Y-m-d H:i:s'), 0, 1, 'C');
+        $this->Ln(3);
+        $this->SetDrawColor(26, 115, 232);
+        $this->SetLineWidth(0.5);
+        $this->Line(15, $this->GetY(), 195, $this->GetY());
         $this->Ln(5);
     }
 
     public function Footer() {
         $this->SetY(-15);
         $this->SetFont('helvetica', 'I', 8);
-        $this->Cell(0, 10, 'Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'C');
+        $this->SetTextColor(128);
+        $this->Cell(0, 10, 'SmartBus Tracker Report | Page ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages(), 0, 0, 'C');
+    }
+
+    public function TableHeader($headers, $widths) {
+        $this->SetFont('helvetica', 'B', 8);
+        $this->SetFillColor(26, 115, 232);
+        $this->SetTextColor(255);
+        $this->SetDrawColor(26, 115, 232);
+        foreach ($headers as $i => $h) {
+            $this->Cell($widths[$i], 8, $h, 1, 0, 'C', true);
+        }
+        $this->Ln();
+        $this->SetTextColor(0);
+        $this->SetDrawColor(200, 200, 200);
+    }
+
+    public function TableRow($vals, $widths, $fill) {
+        $this->SetFont('helvetica', '', 8);
+        if ($fill) {
+            $this->SetFillColor(240, 245, 255);
+        } else {
+            $this->SetFillColor(255, 255, 255);
+        }
+        foreach ($vals as $i => $v) {
+            $this->Cell($widths[$i], 7, $v, 1, 0, 'C', $fill);
+        }
+        $this->Ln();
+    }
+
+    public function TableFooter($text) {
+        $this->SetFont('helvetica', 'B', 9);
+        $this->SetFillColor(230, 240, 255);
+        $this->SetDrawColor(26, 115, 232);
+        $w = array_sum($this->lastWidths ?? [187]);
+        $this->Cell($w, 9, $text, 1, 1, 'R', true);
     }
 }
 
 $pdf = new BusReportPDF('P', 'mm', 'A4', true, true, 'UTF-8');
 $pdf->SetCreator('SmartBus Tracker');
-$pdf->SetTitle(ucfirst($report_type) . ' Report');
+$pdf->SetTitle(ucfirst($report_type) . ' Report - SmartBus Tracker');
+$pdf->SetAuthor('SmartBus Tracker Admin');
 $pdf->setPrintHeader(false);
 $pdf->SetDefaultMonospacedFont(PDF_FONT_MONOSPACED);
 $pdf->SetMargins(15, 15, 15);
 $pdf->SetAutoPageBreak(true, 25);
 $pdf->SetFont('helvetica', '', 10);
+$pdf->reportTitle = ucfirst($report_type) . ' Report';
+$pdf->dateFrom = $date_from;
+$pdf->dateTo = $date_to;
+$pdf->busCode = $bus_code;
 
 $pdf->AddPage();
 
@@ -51,15 +112,9 @@ if ($bus_code) {
 }
 
 if ($report_type === 'bookings') {
-    $pdf->SetFont('helvetica', 'B', 14);
-    $pdf->Cell(0, 10, 'Bookings Report', 0, 1, 'L');
-    $pdf->SetFont('helvetica', '', 9);
-    $pdf->Cell(0, 6, "Period: {$date_from} to {$date_to}" . ($bus_code ? " | Bus: {$bus_code}" : ""), 0, 1);
-    $pdf->Ln(3);
-
     $stmt = $db->prepare("
         SELECT bk.id, bk.booking_date, bk.status, bk.payment_method, bk.amount,
-               b.bus_code, b.bus_name, s.seat_number, u.full_name, u.phone, u.email
+               b.bus_code, b.bus_name, s.seat_number, u.full_name, u.phone
         FROM bookings bk
         JOIN buses b ON bk.bus_id = b.id
         JOIN seats s ON bk.seat_id = s.id
@@ -71,22 +126,13 @@ if ($report_type === 'bookings') {
     $rows = $stmt->fetchAll();
 
     $header = ['ID', 'Date', 'Passenger', 'Phone', 'Bus', 'Seat', 'Amount', 'Status', 'Payment'];
-    $widths = [12, 20, 35, 28, 25, 15, 20, 20, 35];
+    $widths = [12, 22, 35, 28, 22, 15, 22, 18, 33];
+    $pdf->lastWidths = $widths;
+    $pdf->TableHeader($header, $widths);
 
-    $pdf->SetFont('helvetica', 'B', 8);
-    $pdf->SetFillColor(26, 115, 232);
-    $pdf->SetTextColor(255);
-    foreach ($header as $i => $h) {
-        $pdf->Cell($widths[$i], 7, $h, 1, 0, 'C', true);
-    }
-    $pdf->Ln();
-    $pdf->SetTextColor(0);
-
-    $pdf->SetFont('helvetica', '', 8);
     $total_amount = 0;
     foreach ($rows as $row) {
-        $fill = $row['id'] % 2 === 0;
-        $pdf->SetFillColor(245, 245, 245);
+        $fill = ($row['id'] % 2 === 0);
         $vals = [
             '#' . $row['id'],
             $row['booking_date'],
@@ -98,23 +144,13 @@ if ($report_type === 'bookings') {
             strtoupper($row['status']),
             $row['payment_method'] ?? '-'
         ];
-        foreach ($vals as $i => $v) {
-            $pdf->Cell($widths[$i], 6, $v, 1, 0, 'C', $fill);
-        }
-        $pdf->Ln();
+        $pdf->TableRow($vals, $widths, $fill);
         $total_amount += floatval($row['amount'] ?? 500);
     }
 
-    $pdf->SetFont('helvetica', 'B', 9);
-    $pdf->Cell(array_sum($widths), 8, "Total: RWF " . number_format($total_amount) . " | Bookings: " . count($rows), 1, 1, 'R');
+    $pdf->TableFooter("Total: RWF " . number_format($total_amount) . " | Bookings: " . count($rows));
 
 } elseif ($report_type === 'payments') {
-    $pdf->SetFont('helvetica', 'B', 14);
-    $pdf->Cell(0, 10, 'Payments Report', 0, 1, 'L');
-    $pdf->SetFont('helvetica', '', 9);
-    $pdf->Cell(0, 6, "Period: {$date_from} to {$date_to}" . ($bus_code ? " | Bus: {$bus_code}" : ""), 0, 1);
-    $pdf->Ln(3);
-
     $stmt = $db->prepare("
         SELECT p.*, b.bus_code, b.bus_name, s.seat_number, u.full_name
         FROM payments p
@@ -129,23 +165,14 @@ if ($report_type === 'bookings') {
     $rows = $stmt->fetchAll();
 
     $header = ['ID', 'Booking', 'Passenger', 'Bus', 'Seat', 'Amount', 'Method', 'Status', 'Date'];
-    $widths = [12, 18, 35, 25, 15, 22, 25, 22, 28];
+    $widths = [12, 18, 35, 22, 15, 22, 25, 20, 18];
+    $pdf->lastWidths = $widths;
+    $pdf->TableHeader($header, $widths);
 
-    $pdf->SetFont('helvetica', 'B', 8);
-    $pdf->SetFillColor(26, 115, 232);
-    $pdf->SetTextColor(255);
-    foreach ($header as $i => $h) {
-        $pdf->Cell($widths[$i], 7, $h, 1, 0, 'C', true);
-    }
-    $pdf->Ln();
-    $pdf->SetTextColor(0);
-
-    $pdf->SetFont('helvetica', '', 8);
     $total_amount = 0;
     $successful = 0;
     foreach ($rows as $row) {
-        $fill = $row['id'] % 2 === 0;
-        $pdf->SetFillColor(245, 245, 245);
+        $fill = ($row['id'] % 2 === 0);
         $vals = [
             '#' . $row['id'],
             '#' . $row['booking_id'],
@@ -157,41 +184,24 @@ if ($report_type === 'bookings') {
             strtoupper($row['status']),
             substr($row['created_at'], 0, 10)
         ];
-        foreach ($vals as $i => $v) {
-            $pdf->Cell($widths[$i], 6, $v, 1, 0, 'C', $fill);
-        }
-        $pdf->Ln();
+        $pdf->TableRow($vals, $widths, $fill);
         $total_amount += $row['amount'];
         if ($row['status'] === 'successful') $successful++;
     }
 
-    $pdf->SetFont('helvetica', 'B', 9);
-    $pdf->Cell(array_sum($widths), 8, "Total: RWF " . number_format($total_amount) . " | Successful: {$successful} | Total: " . count($rows), 1, 1, 'R');
+    $pdf->TableFooter("Total: RWF " . number_format($total_amount) . " | Successful: {$successful} | Total Records: " . count($rows));
 
 } elseif ($report_type === 'drivers') {
-    $pdf->SetFont('helvetica', 'B', 14);
-    $pdf->Cell(0, 10, 'Drivers Report', 0, 1, 'L');
-    $pdf->Ln(3);
-
     $stmt = $db->query("SELECT d.*, b.bus_code, b.bus_name FROM drivers d LEFT JOIN buses b ON d.assigned_bus_id = b.id ORDER BY d.full_name");
     $rows = $stmt->fetchAll();
 
     $header = ['ID', 'Name', 'Phone', 'License', 'Assigned Bus', 'Status'];
     $widths = [12, 45, 30, 35, 35, 30];
+    $pdf->lastWidths = $widths;
+    $pdf->TableHeader($header, $widths);
 
-    $pdf->SetFont('helvetica', 'B', 9);
-    $pdf->SetFillColor(26, 115, 232);
-    $pdf->SetTextColor(255);
-    foreach ($header as $i => $h) {
-        $pdf->Cell($widths[$i], 7, $h, 1, 0, 'C', true);
-    }
-    $pdf->Ln();
-    $pdf->SetTextColor(0);
-
-    $pdf->SetFont('helvetica', '', 9);
     foreach ($rows as $row) {
-        $fill = $row['id'] % 2 === 0;
-        $pdf->SetFillColor(245, 245, 245);
+        $fill = ($row['id'] % 2 === 0);
         $vals = [
             '#' . $row['id'],
             $row['full_name'],
@@ -200,26 +210,19 @@ if ($report_type === 'bookings') {
             $row['bus_code'] ?? 'Unassigned',
             strtoupper($row['status'])
         ];
-        foreach ($vals as $i => $v) {
-            $pdf->Cell($widths[$i], 7, $v, 1, 0, 'C', $fill);
-        }
-        $pdf->Ln();
+        $pdf->TableRow($vals, $widths, $fill);
     }
 
-} elseif ($report_type === 'summary') {
-    $pdf->SetFont('helvetica', 'B', 14);
-    $pdf->Cell(0, 10, 'Summary Report', 0, 1, 'L');
-    $pdf->SetFont('helvetica', '', 9);
-    $pdf->Cell(0, 6, "Period: {$date_from} to {$date_to}", 0, 1);
-    $pdf->Ln(5);
+    $pdf->TableFooter("Total Drivers: " . count($rows));
 
+} elseif ($report_type === 'summary') {
     $stats = [];
     $stmt = $db->prepare("SELECT COUNT(*) as c FROM bookings bk JOIN buses b ON bk.bus_id = b.id {$where}");
     $stmt->execute($params);
     $stats['total_bookings'] = $stmt->fetch()['c'];
 
     $where_paid = str_replace('bk.created_at', 'bk.created_at', $where) . " AND bk.status = 'paid'";
-    $stmt = $db->prepare("SELECT COUNT(*) as c, SUM(bk.amount) as total FROM bookings bk JOIN buses b ON bk.bus_id = b.id {$where_paid}");
+    $stmt = $db->prepare("SELECT COUNT(*) as c, COALESCE(SUM(bk.amount),0) as total FROM bookings bk JOIN buses b ON bk.bus_id = b.id {$where_paid}");
     $stmt->execute($params);
     $paid = $stmt->fetch();
     $stats['paid_bookings'] = $paid['c'];
@@ -234,30 +237,57 @@ if ($report_type === 'bookings') {
     $stmt->execute([$date_from, $date_to]);
     $stats['successful_payments'] = $stmt->fetch()['c'];
 
+    $where_revenue = "WHERE status = 'successful' AND DATE(created_at) BETWEEN ? AND ?";
+    $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) as total FROM payments {$where_revenue}");
+    $stmt->execute([$date_from, $date_to]);
+    $stats['total_payment_revenue'] = $stmt->fetch()['total'];
+
     $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->SetFillColor(26, 115, 232);
+    $pdf->SetTextColor(255);
+    $pdf->Cell(170, 10, 'Key Metrics', 1, 1, 'C', true);
+    $pdf->SetTextColor(0);
+
     $summary_data = [
-        ['Total Bookings', $stats['total_bookings']],
-        ['Paid Bookings', $stats['paid_bookings']],
-        ['Pending Bookings', $stats['pending_bookings']],
-        ['Successful Payments', $stats['successful_payments']],
-        ['Total Revenue', 'RWF ' . number_format($stats['total_revenue'])]
+        ['Total Bookings', number_format($stats['total_bookings'])],
+        ['Paid Bookings', number_format($stats['paid_bookings'])],
+        ['Pending Bookings', number_format($stats['pending_bookings'])],
+        ['Successful Payments', number_format($stats['successful_payments'])],
+        ['Total Revenue (Bookings)', 'RWF ' . number_format($stats['total_revenue'])],
+        ['Total Revenue (Payments)', 'RWF ' . number_format($stats['total_payment_revenue'])],
     ];
 
-    foreach ($summary_data as $item) {
-        $pdf->SetFillColor(245, 245, 245);
-        $pdf->Cell(90, 10, $item[0], 1, 0, 'L', true);
-        $pdf->SetFont('helvetica', 'B', 12);
-        $pdf->Cell(80, 10, (string) $item[1], 1, 1, 'C', true);
-        $pdf->SetFont('helvetica', 'B', 12);
+    foreach ($summary_data as $i => $item) {
+        $fill = ($i % 2 === 0);
+        $pdf->SetFillColor(240, 245, 255);
+        $pdf->SetDrawColor(200, 200, 200);
+        $pdf->SetFont('helvetica', '', 11);
+        $pdf->Cell(95, 12, $item[0], 1, 0, 'L', $fill);
+        $pdf->SetFont('helvetica', 'B', 11);
+        $pdf->Cell(75, 12, $item[1], 1, 1, 'C', $fill);
     }
+
+    $pdf->Ln(10);
+    $pdf->SetFont('helvetica', 'I', 9);
+    $pdf->SetTextColor(128);
+    $pdf->Cell(0, 6, 'This report was auto-generated by SmartBus Tracker System.', 0, 1, 'C');
 }
 
+$pdf_content = $pdf->Output('', 'S');
 $pdf_path = sys_get_temp_dir() . "/report_{$report_type}_" . date('Ymd_His') . ".pdf";
-$pdf->Output($pdf_path, 'F');
+file_put_contents($pdf_path, $pdf_content);
 
-header('Content-Type: application/pdf');
-header('Content-Disposition: attachment; filename="' . $report_type . '_report_' . date('Y-m-d') . '.pdf"');
-header('Content-Length: ' . filesize($pdf_path));
-readfile($pdf_path);
+if ($mode === 'view') {
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $report_type . '_report_' . date('Y-m-d') . '.pdf"');
+    header('Content-Length: ' . filesize($pdf_path));
+    readfile($pdf_path);
+} else {
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: attachment; filename="' . $report_type . '_report_' . date('Y-m-d') . '.pdf"');
+    header('Content-Length: ' . filesize($pdf_path));
+    readfile($pdf_path);
+}
+
 unlink($pdf_path);
 exit;
