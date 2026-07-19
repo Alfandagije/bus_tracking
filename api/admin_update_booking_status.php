@@ -94,13 +94,11 @@ try {
             // Queue cancellation SMS
             $amount = $booking['amount'] ?? 500;
             $message = "BOOKING CANCELLED\n";
-            $message .= "-------------------\n";
             $message .= "Bus: {$bus_name}\n";
             $message .= "Seat: {$seat_number}\n";
-            $message .= "Booking ID: #{$id}\n";
+            $message .= "ID: #{$id}\n";
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";
-            $message .= "-------------------\n";
             $message .= "This booking has been cancelled.";
             $insert_sms_stmt->execute([$id, $phone, $message]);
         } 
@@ -117,14 +115,12 @@ try {
             // Queue SMS
             $amount = $booking['amount'] ?? 500;
             $message = "BOOKING REACTIVATED\n";
-            $message .= "-------------------\n";
             $message .= "Bus: {$bus_name}\n";
             $message .= "Seat: {$seat_number}\n";
-            $message .= "Booking ID: #{$id}\n";
+            $message .= "ID: #{$id}\n";
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";
             $message .= "Status: " . strtoupper($status) . "\n";
-            $message .= "-------------------\n";
             $message .= "Travel safe!";
             $insert_sms_stmt->execute([$id, $phone, $message]);
         } 
@@ -132,16 +128,13 @@ try {
             // Payment confirmation SMS with full ticket details
             $amount = $booking['amount'] ?? 500;
             $message = "PAYMENT CONFIRMED\n";
-            $message .= "-------------------\n";
             $message .= "Bus: {$bus_name}\n";
             $message .= "Seat: {$seat_number}\n";
-            $message .= "Booking ID: #{$id}\n";
+            $message .= "ID: #{$id}\n";
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";
             $message .= "Payment: PAID\n";
-            $message .= "-------------------\n";
-            $message .= "Show this message to the driver.\n";
-            $message .= "Travel safe!";
+            $message .= "Show this to driver. Travel safe!";
             $insert_sms_stmt->execute([$id, $phone, $message]);
         } 
         else if ($status === 'pending' && $old_status === 'paid') {

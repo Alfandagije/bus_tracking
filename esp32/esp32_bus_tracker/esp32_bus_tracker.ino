@@ -357,19 +357,45 @@ bool sendSMS(String phone, String message)
 {
     sendAT("AT+CMGF=1", 1000);
 
+    // Send AT+CMGS and wait for ">" prompt
     sim900.print("AT+CMGS=\"");
     sim900.print(phone);
     sim900.println("\"");
-    delay(1000);
 
-    sim900.print(message);
-    delay(500);
-    sim900.write(26);
-    delay(5000);
+    // Wait for ">" prompt (up to 5s)
+    String prompt = "";
+    long start = millis();
+    while ((millis() - start) < 5000) {
+        while (sim900.available()) {
+            char c = sim900.read();
+            prompt += c;
+            if (c == '>') goto gotPrompt;
+        }
+    }
+    gotPrompt:
 
+    // Strip non-GSM characters (keep only ASCII 0x20-0x7E and newlines)
+    String cleanMsg = "";
+    for (int i = 0; i < message.length(); i++) {
+        char c = message.charAt(i);
+        if ((c >= 0x20 && c <= 0x7E) || c == 0x0A) {
+            cleanMsg += c;
+        }
+    }
+
+    sim900.print(cleanMsg);
+    delay(200);
+    sim900.write(0x1A); // Ctrl+Z to send
+
+    // Wait for response (up to 15s for network delivery)
     String resp = "";
-    while (sim900.available()) {
-        resp += char(sim900.read());
+    start = millis();
+    while ((millis() - start) < 15000) {
+        while (sim900.available()) {
+            resp += char(sim900.read());
+        }
+        if (resp.indexOf("OK") >= 0 || resp.indexOf("ERROR") >= 0) break;
+        delay(100);
     }
     Serial.println("[SMS] " + resp);
 
