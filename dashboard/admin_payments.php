@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'manager'])) {
     header('Location: ../auth/login.php');
     exit;
 }
@@ -36,7 +36,7 @@ if ($db) {
     <div class="nav-links" id="navLinks">
         <a href="../index.php">Live Tracking</a>
         <div class="nav-user">
-            <span><?= icon('user') ?> <?= htmlspecialchars($_SESSION['full_name']) ?> (Admin)</span>
+            <span><?= icon('user') ?> <?= htmlspecialchars($_SESSION['full_name']) ?> (<?= ucfirst($_SESSION['role']) ?>)</span>
             <a href="../auth/logout.php" class="btn btn-sm btn-primary">Logout</a>
         </div>
     </div>
@@ -44,10 +44,11 @@ if ($db) {
 <div class="admin-layout">
     <button class="hamburger" id="sidebarToggle" aria-label="Toggle sidebar" style="display:none;"><span></span><span></span><span></span></button>
     <div class="admin-sidebar" id="adminSidebar">
-        <h3>Admin Panel</h3>
+        <h3><?= $_SESSION['role'] === 'admin' ? 'Admin' : 'Manager' ?> Panel</h3>
         <a href="index.php"><?= icon('chart') ?> Dashboard</a>
         <a href="admin_buses.php"><?= icon('bus') ?> Buses</a>
         <a href="admin_drivers.php"><?= icon('user') ?> Drivers</a>
+        <a href="admin_routes.php"><?= icon('ticket') ?> Routes</a>
         <a href="admin_bookings.php"><?= icon('ticket') ?> Bookings</a>
         <a href="admin_payments.php" class="active"><?= icon('ticket') ?> Payments</a>
         <a href="admin_sms_logs.php"><?= icon('mail') ?> SMS Logs</a>

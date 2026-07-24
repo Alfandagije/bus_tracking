@@ -123,6 +123,35 @@ function errorResponse($message = 'Something went wrong') {
     return jsonResponse(['status' => 'error', 'message' => $message], 500);
 }
 
+function requireRole($roles) {
+    $session = isAuthenticated();
+    if (!is_array($roles)) $roles = [$roles];
+    if (!in_array($session['role'], $roles)) {
+        jsonResponse(['status' => 'error', 'message' => 'Forbidden'], 403);
+    }
+    return $session;
+}
+
+function isManager() {
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'manager';
+}
+
+function isAdmin() {
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+}
+
+function isDriver() {
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'driver';
+}
+
+function isPassenger() {
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'passenger';
+}
+
+function canManage() {
+    return isset($_SESSION['role']) && in_array($_SESSION['role'], ['admin', 'manager']);
+}
+
 define('GOOGLE_MAPS_API_KEY', getenv('GOOGLE_MAPS_API_KEY') ?: 'AIzaSyCJLOPxr9PgRtV_aOMJwXu4q6II_cPgSME');
 
 require_once __DIR__ . '/helpers.php';

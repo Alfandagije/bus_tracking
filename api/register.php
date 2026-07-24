@@ -34,7 +34,7 @@ try {
     }
 
     $hashed = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $db->prepare("INSERT INTO users (full_name, email, phone, password) VALUES (?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO users (full_name, email, phone, password, role) VALUES (?, ?, ?, ?, 'passenger')");
     $stmt->execute([$full_name, $email, $phone, $hashed]);
 
     $user_id = $db->lastInsertId();
@@ -43,7 +43,7 @@ try {
     $_SESSION['user_id'] = $user_id;
     $_SESSION['full_name'] = $full_name;
     $_SESSION['email'] = $email;
-    $_SESSION['role'] = 'user';
+    $_SESSION['role'] = 'passenger';
 
     jsonResponse(['status' => 'success', 'message' => 'Registration successful', 'user_id' => $user_id], 201);
 } catch (Exception $e) {

@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'manager'])) {
     header('Location: ../auth/login.php');
     exit;
 }
@@ -14,7 +14,7 @@ if ($db) {
                 (SELECT COUNT(*) FROM bookings WHERE user_id = u.id) as total_bookings,
                 (SELECT COUNT(*) FROM bookings WHERE user_id = u.id AND status = 'paid') as paid_bookings
             FROM users u
-            WHERE u.role = 'user'
+            WHERE u.role = 'passenger'
             ORDER BY u.created_at DESC
         ")->fetchAll();
     } catch (Exception $e) {}
@@ -37,7 +37,7 @@ if ($db) {
     <div class="nav-links" id="navLinks">
         <a href="../index.php">Live Tracking</a>
         <div class="nav-user">
-            <span><img src="../assets/icons/user.svg" class="icon"> <?= htmlspecialchars($_SESSION['full_name']) ?> (Admin)</span>
+            <span><img src="../assets/icons/user.svg" class="icon"> <?= htmlspecialchars($_SESSION['full_name']) ?> (<?= ucfirst($_SESSION['role']) ?>)</span>
             <a href="../auth/logout.php" class="btn btn-sm btn-primary">Logout</a>
         </div>
     </div>
@@ -47,10 +47,11 @@ if ($db) {
         <span></span><span></span><span></span>
     </button>
     <div class="admin-sidebar" id="adminSidebar">
-        <h3>Admin Panel</h3>
+        <h3><?= $_SESSION['role'] === 'admin' ? 'Admin' : 'Manager' ?> Panel</h3>
         <a href="index.php"><img src="../assets/icons/chart.svg" class="icon"> Dashboard</a>
         <a href="admin_buses.php"><img src="../assets/icons/bus.svg" class="icon"> Buses</a>
         <a href="admin_drivers.php"><img src="../assets/icons/user.svg" class="icon"> Drivers</a>
+        <a href="admin_routes.php"><img src="../assets/icons/ticket.svg" class="icon"> Routes</a>
         <a href="admin_bookings.php"><img src="../assets/icons/ticket.svg" class="icon"> Bookings</a>
         <a href="admin_payments.php"><img src="../assets/icons/ticket.svg" class="icon"> Payments</a>
         <a href="admin_sms_logs.php"><img src="../assets/icons/mail.svg" class="icon"> SMS Logs</a>

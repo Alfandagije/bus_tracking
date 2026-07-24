@@ -19,8 +19,10 @@
                     WIFI CREDENTIALS — SET THESE
 ********************************************************************/
 
-const char* WIFI_SSID = "YourWiFiName";
-const char* WIFI_PASS = "YourWiFiPassword";
+
+const char* WIFI_SSID = "Galaxy A34 5G D1D6";
+const char* WIFI_PASS = "22222222";
+
 
 /********************************************************************
                     HARDWARE CONFIG
@@ -60,6 +62,7 @@ const char* SERVER = "https://bus-tracking-tbyl.onrender.com";
 String URL_UPDATE  = String(SERVER) + "/api/update.php";
 String URL_SMS     = String(SERVER) + "/api/get_pending_sms.php";
 String URL_CONFIRM = String(SERVER) + "/api/confirm_sms.php";
+String URL_FAIL    = String(SERVER) + "/api/fail_sms.php";
 
 /********************************************************************
                     GLOBAL VARIABLES
@@ -71,6 +74,9 @@ String lng = "0.0";
 int seat1, seat2, seat3, seat4;
 
 bool wifiConnected = false;
+int smsRetries = 0;
+String lastSmsId = "";
+const int MAX_SMS_RETRIES = 3;
 
 /********************************************************************
                     SETUP
@@ -173,21 +179,43 @@ void readSeats()
 
 void initSIM900()
 {
-    Serial.println("[SIM900] Initializing for GPS + SMS...");
+    Serial.println("[SIM900] Waiting for module...");
 
-    sendAT("AT", 2000);
+    // SIM900 needs time to boot up after power-on
+    delay(5000);
+
+    // Retry AT command up to 5 times
+    bool ready = false;
+    for (int i = 0; i < 5; i++) {
+        String r = sendAT("AT", 3000);
+        if (r.indexOf("OK") >= 0) {
+            ready = true;
+            break;
+        }
+        Serial.println("[SIM900] Retrying... (" + String(i+1) + "/5)");
+        delay(2000);
+    }
+
+    if (!ready) {
+        Serial.println("[SIM900] No response - check wiring/power");
+        return;
+    }
+
+    // Disable echo - cleaner responses
     sendAT("ATE0", 1000);
 
-    // Check SIM ready
-    if (!checkSIM()) return;
+    // Check SIM
+    sendAT("AT+CPIN?", 3000);
 
-    // Check network registration (required for SMS)
-    if (!waitForNetwork()) return;
+    // Give SIM900 time to register
+    Serial.println("[SIM900] Waiting 15s for network...");
+    delay(15000);
 
-    // Signal quality
+    String r = sendAT("AT+CREG?", 2000);
+    Serial.println("[NET] " + r);
+
     checkSignal();
-
-    Serial.println("[SIM900] Ready (GPS + SMS only)");
+    Serial.println("[SIM900] Ready");
 }
 
 bool checkSIM()
@@ -203,16 +231,17 @@ bool checkSIM()
 
 bool waitForNetwork()
 {
-    Serial.println("[NET] Waiting for network registration...");
-    for (int i = 0; i < 30; i++) {
+    Serial.println("[NET] Waiting for registration...");
+
+    for (int i = 0; i < 20; i++) {
         String r = sendAT("AT+CREG?", 2000);
-        if (r.indexOf("+CREG: 0,1") >= 0 || r.indexOf("+CREG: 0,5") >= 0) {
+        if (r.indexOf(",1") >= 0 || r.indexOf(",5") >= 0) {
             Serial.println("[NET] Registered");
             return true;
         }
-        delay(1000);
+        delay(2000);
     }
-    Serial.println("[NET] Registration failed");
+    Serial.println("[NET] Not registered yet");
     return false;
 }
 
@@ -249,19 +278,26 @@ String sendAT(String cmd, int timeout)
         while (sim900.available()) {
             char c = sim900.read();
             response += c;
-            if (response.endsWith("\r\nOK\r\n") || response.endsWith("\r\nERROR\r\n")) {
-                goto done;
+            if (response.indexOf("OK") >= 0 || response.indexOf("ERROR") >= 0) {
+                break;
             }
         }
+        if (response.indexOf("OK") >= 0 || response.indexOf("ERROR") >= 0) break;
     }
-    done:
 
-    // Drain any leftover bytes so next call starts clean
+    // Drain leftover
     while (sim900.available()) {
         sim900.read();
     }
 
     response.trim();
+
+    // Strip echo: if response starts with the command we sent, remove it
+    if (response.startsWith(cmd)) {
+        response = response.substring(cmd.length());
+        response.trim();
+    }
+
     if (response.length() > 0) {
         Serial.println("[AT] " + response);
     }
@@ -342,10 +378,27 @@ void checkPendingSMS()
     String message  = doc["message"];
     String ticket_id = doc["ticket_id"];
 
+    // Reset retry counter for new SMS
+    if (ticket_id != lastSmsId) {
+        lastSmsId = ticket_id;
+        smsRetries = 0;
+    }
+
     bool sent = sendSMS(phone, message);
 
     if (sent) {
         confirmSMS(ticket_id);
+        smsRetries = 0;
+        lastSmsId = "";
+    } else {
+        smsRetries++;
+        Serial.println("[SMS] Retry " + String(smsRetries) + "/" + String(MAX_SMS_RETRIES));
+        if (smsRetries >= MAX_SMS_RETRIES) {
+            Serial.println("[SMS] Marking SMS as failed: " + ticket_id);
+            httpGET(URL_FAIL + "?ticket_id=" + ticket_id);
+            smsRetries = 0;
+            lastSmsId = "";
+        }
     }
 }
 
@@ -355,26 +408,42 @@ void checkPendingSMS()
 
 bool sendSMS(String phone, String message)
 {
-    sendAT("AT+CMGF=1", 1000);
+    // Set text mode
+    String cmgf = sendAT("AT+CMGF=1", 2000);
+    if (cmgf.indexOf("OK") < 0) {
+        Serial.println("[SMS] Text mode failed");
+        return false;
+    }
 
     // Send AT+CMGS and wait for ">" prompt
     sim900.print("AT+CMGS=\"");
     sim900.print(phone);
     sim900.println("\"");
 
-    // Wait for ">" prompt (up to 5s)
+    // Wait for ">" prompt (up to 10s)
     String prompt = "";
+    bool gotPrompt = false;
     long start = millis();
-    while ((millis() - start) < 5000) {
+    while ((millis() - start) < 10000) {
         while (sim900.available()) {
             char c = sim900.read();
             prompt += c;
-            if (c == '>') goto gotPrompt;
+            if (c == '>') {
+                gotPrompt = true;
+                break;
+            }
         }
+        if (gotPrompt) break;
+        delay(10);
     }
-    gotPrompt:
 
-    // Strip non-GSM characters (keep only ASCII 0x20-0x7E and newlines)
+    if (!gotPrompt) {
+        Serial.println("[SMS] No '>' prompt");
+        flushSIM900();
+        return false;
+    }
+
+    // Strip non-GSM characters
     String cleanMsg = "";
     for (int i = 0; i < message.length(); i++) {
         char c = message.charAt(i);
@@ -387,10 +456,10 @@ bool sendSMS(String phone, String message)
     delay(200);
     sim900.write(0x1A); // Ctrl+Z to send
 
-    // Wait for response (up to 15s for network delivery)
+    // Wait for response (up to 30s for network delivery)
     String resp = "";
     start = millis();
-    while ((millis() - start) < 15000) {
+    while ((millis() - start) < 30000) {
         while (sim900.available()) {
             resp += char(sim900.read());
         }

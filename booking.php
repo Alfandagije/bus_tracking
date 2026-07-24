@@ -18,8 +18,11 @@
         <a href="booking.php" class="active">Book Seat</a>
         <?php if (isset($_SESSION['user_id'])): ?>
             <a href="my_bookings.php">My Bookings</a>
-            <?php if ($_SESSION['role'] === 'admin'): ?>
-                <a href="dashboard/index.php">Admin</a>
+            <?php if (in_array($_SESSION['role'], ['admin', 'manager'])): ?>
+                <a href="dashboard/index.php">Dashboard</a>
+            <?php endif; ?>
+            <?php if ($_SESSION['role'] === 'driver'): ?>
+                <a href="dashboard/driver/index.php">My Bus</a>
             <?php endif; ?>
             <div class="nav-user">
                 <span><?= icon('user') ?> <?= htmlspecialchars($_SESSION['full_name']) ?></span>

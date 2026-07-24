@@ -31,9 +31,17 @@ try {
     $_SESSION['email'] = $user['email'];
     $_SESSION['role'] = $user['role'];
 
+    $redirect = '../index.php';
+    if ($user['role'] === 'admin' || $user['role'] === 'manager') {
+        $redirect = '../dashboard/index.php';
+    } elseif ($user['role'] === 'driver') {
+        $redirect = '../dashboard/driver/index.php';
+    }
+
     jsonResponse([
         'status' => 'success',
         'message' => 'Login successful',
+        'redirect' => $redirect,
         'user' => [
             'id' => $user['id'],
             'full_name' => $user['full_name'],

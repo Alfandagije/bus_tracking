@@ -1,6 +1,6 @@
 <?php
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'manager'])) {
     header('Location: ../auth/login.php');
     exit;
 }
@@ -38,7 +38,7 @@ if ($db) {
     <div class="nav-links" id="navLinks">
         <a href="../index.php">Live Tracking</a>
         <div class="nav-user">
-            <span><?= icon('user') ?> <?= htmlspecialchars($_SESSION['full_name']) ?> (Admin)</span>
+            <span><?= icon('user') ?> <?= htmlspecialchars($_SESSION['full_name']) ?> (<?= ucfirst($_SESSION['role']) ?>)</span>
             <a href="../auth/logout.php" class="btn btn-sm btn-primary">Logout</a>
         </div>
     </div>
@@ -46,10 +46,11 @@ if ($db) {
 <div class="admin-layout">
     <button class="hamburger" id="sidebarToggle" aria-label="Toggle sidebar" style="display:none;"><span></span><span></span><span></span></button>
     <div class="admin-sidebar" id="adminSidebar">
-        <h3>Admin Panel</h3>
+        <h3><?= $_SESSION['role'] === 'admin' ? 'Admin' : 'Manager' ?> Panel</h3>
         <a href="index.php"><?= icon('chart') ?> Dashboard</a>
         <a href="admin_buses.php" class="active"><?= icon('bus') ?> Buses</a>
         <a href="admin_drivers.php"><?= icon('user') ?> Drivers</a>
+        <a href="admin_routes.php"><?= icon('ticket') ?> Routes</a>
         <a href="admin_bookings.php"><?= icon('ticket') ?> Bookings</a>
         <a href="admin_payments.php"><?= icon('ticket') ?> Payments</a>
         <a href="admin_sms_logs.php"><?= icon('mail') ?> SMS Logs</a>
@@ -61,7 +62,7 @@ if ($db) {
         <h2 style="margin-bottom:24px;"><?= icon('bus') ?> Bus Management</h2>
         <div id="alertMessage" class="message" style="margin-bottom: 20px;"></div>
 
-        <div style="margin-bottom:16px;">
+        <div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-primary" onclick="openModal()">+ Add Bus</button>
         </div>
 
@@ -84,6 +85,7 @@ if ($db) {
                             <td style="font-family:monospace;font-size:0.75rem;"><?= sec($bus['current_lng']) ?></td>
                             <td>
                                 <button class="btn btn-sm" style="background:var(--gray-100);" onclick='editBus(<?= json_encode($bus) ?>)'>Edit</button>
+                                <button class="btn btn-sm btn-success" onclick="resetSeats(<?= sec($bus['id']) ?>, '<?= sec($bus['bus_code']) ?>')" title="Reset seats when bus reaches destination">Reset</button>
                                 <button class="btn btn-sm btn-danger" onclick="deleteBus(<?= sec($bus['id']) ?>)">Delete</button>
                             </td>
                         </tr>
@@ -155,6 +157,7 @@ async function saveBus(){
     else showAlert(r.message,'error');
 }
 async function deleteBus(id){if(!confirm('Delete this bus? All associated seats will be removed.'))return;const res=await fetch('../api/admin_manage_buses.php?action=delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const r=await res.json();if(r.status==='success'){showAlert(r.message,'success');document.getElementById('bus-'+id).remove();}else showAlert(r.message,'error');}
+async function resetSeats(busId, busCode){if(!confirm('Reset all seats for '+busCode+'? This will complete today\'s bookings and free all seats.'))return;const res=await fetch('../api/reset_seats.php',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bus_id:busId})});const r=await res.json();if(r.status==='success'){showAlert(r.message,'success');setTimeout(()=>location.reload(),1500);}else showAlert(r.message,'error');}
 document.getElementById('hamburger')?.addEventListener('click',function(){this.classList.toggle('active');document.getElementById('navLinks').classList.toggle('open');});
 document.addEventListener('click',function(e){const nav=document.querySelector('nav');if(nav&&!nav.contains(e.target)&&!e.target.closest('.admin-sidebar')){document.getElementById('hamburger')?.classList.remove('active');document.getElementById('navLinks')?.classList.remove('open');}});
 if(window.innerWidth<992){document.getElementById('sidebarToggle').style.display='flex';}

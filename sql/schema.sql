@@ -1,17 +1,28 @@
 -- Smart Multi-Bus IoT Tracking & Ticketing System
--- MySQL Database Schema
+-- MySQL Database Schema (v2 - 4-Role System)
 
 CREATE DATABASE IF NOT EXISTS bus_tracking_db;
 USE bus_tracking_db;
 
--- Users table
+-- Users table (4 roles: admin, manager, driver, passenger)
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     full_name VARCHAR(100) NOT NULL,
     email VARCHAR(100) UNIQUE NOT NULL,
     phone VARCHAR(20) NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'user') DEFAULT 'user',
+    role ENUM('admin', 'manager', 'driver', 'passenger') DEFAULT 'passenger',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Routes table
+CREATE TABLE routes (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    route_name VARCHAR(100) NOT NULL,
+    origin VARCHAR(100) NOT NULL,
+    destination VARCHAR(100) NOT NULL,
+    base_price DECIMAL(10,2) DEFAULT 500.00,
+    status ENUM('active', 'inactive') DEFAULT 'active',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
@@ -20,14 +31,16 @@ CREATE TABLE buses (
     id INT AUTO_INCREMENT PRIMARY KEY,
     bus_code VARCHAR(20) UNIQUE NOT NULL,
     bus_name VARCHAR(100) NOT NULL,
-    total_seats INT DEFAULT 30,
+    total_seats INT DEFAULT 4,
     fare DECIMAL(10,2) DEFAULT 500.00,
+    route_id INT DEFAULT NULL,
     driver_id INT DEFAULT NULL,
     current_lat DECIMAL(10, 7) DEFAULT 0.0000000,
     current_lng DECIMAL(10, 7) DEFAULT 0.0000000,
     status ENUM('active', 'inactive', 'maintenance') DEFAULT 'active',
     last_update TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (route_id) REFERENCES routes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Seats table
@@ -40,6 +53,20 @@ CREATE TABLE seats (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (bus_id) REFERENCES buses(id) ON DELETE CASCADE,
     UNIQUE KEY unique_bus_seat (bus_id, seat_number)
+) ENGINE=InnoDB;
+
+-- Drivers table
+CREATE TABLE drivers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    user_id INT DEFAULT NULL,
+    license_number VARCHAR(50) UNIQUE NOT NULL,
+    assigned_bus_id INT DEFAULT NULL,
+    status ENUM('active', 'inactive') DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (assigned_bus_id) REFERENCES buses(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Bookings table
@@ -58,30 +85,6 @@ CREATE TABLE bookings (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (bus_id) REFERENCES buses(id) ON DELETE CASCADE,
     FOREIGN KEY (seat_id) REFERENCES seats(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- SMS Logs table
-CREATE TABLE sms_logs (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    booking_id INT NOT NULL,
-    phone VARCHAR(20) NOT NULL,
-    message TEXT NOT NULL,
-    status ENUM('pending', 'sent', 'failed') DEFAULT 'pending',
-    sent_at TIMESTAMP NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- Drivers table
-CREATE TABLE drivers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    full_name VARCHAR(100) NOT NULL,
-    phone VARCHAR(20) NOT NULL,
-    license_number VARCHAR(50) UNIQUE NOT NULL,
-    assigned_bus_id INT DEFAULT NULL,
-    status ENUM('active', 'inactive') DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (assigned_bus_id) REFERENCES buses(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 -- Payments table
@@ -103,15 +106,45 @@ CREATE TABLE payments (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Insert default admin user (password: admin123)
+-- SMS Logs table
+CREATE TABLE sms_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    status ENUM('pending', 'sent', 'failed') DEFAULT 'pending',
+    sent_at TIMESTAMP NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Default routes
+INSERT INTO routes (route_name, origin, destination, base_price, status) VALUES
+('Kigali Express Route 1', 'Kigali City Center', 'Kimironko', 500.00, 'active'),
+('Kigali Express Route 2', 'Kigali City Center', 'Nyabugogo', 500.00, 'active'),
+('Kigali Express Route 3', 'Kigali City Center', 'Remera', 500.00, 'active');
+
+-- Default admin user (password: admin123)
 INSERT INTO users (full_name, email, phone, password, role) VALUES
 ('System Admin', 'admin@bus.com', '+250788000000', '$2y$10$z0XedUA97boWTZGCK7541.thamvg9iZucKaGTLgntBMzAMd.CZ2GO', 'admin');
 
--- Insert default buses
-INSERT INTO buses (bus_code, bus_name, total_seats, current_lat, current_lng) VALUES
-('BUS001', 'Kigali Express Route 1', 4, -1.9440727, 30.0618848),
-('BUS002', 'Kigali Express Route 2', 4, -1.9480000, 30.0580000),
-('BUS003', 'Kigali Express Route 3', 4, -1.9500000, 30.0650000);
+-- Default manager user (password: manager123)
+INSERT INTO users (full_name, email, phone, password, role) VALUES
+('System Manager', 'manager@bus.com', '+250788000001', '$2y$10$z0XedUA97boWTZGCK7541.thamvg9iZucKaGTLgntBMzAMd.CZ2GO', 'manager');
+
+-- Default driver user (password: driver123)
+INSERT INTO users (full_name, email, phone, password, role) VALUES
+('Jean Driver', 'driver@bus.com', '+250788000002', '$2y$10$z0XedUA97boWTZGCK7541.thamvg9iZucKaGTLgntBMzAMd.CZ2GO', 'driver');
+
+-- Default buses
+INSERT INTO buses (bus_code, bus_name, total_seats, fare, route_id, current_lat, current_lng) VALUES
+('BUS001', 'Kigali Express Route 1', 4, 500.00, 1, -1.9440727, 30.0618848),
+('BUS002', 'Kigali Express Route 2', 4, 500.00, 2, -1.9480000, 30.0580000),
+('BUS003', 'Kigali Express Route 3', 4, 500.00, 3, -1.9500000, 30.0650000);
+
+-- Default driver record (linked to driver user)
+INSERT INTO drivers (full_name, phone, user_id, license_number, assigned_bus_id) VALUES
+('Jean Driver', '+250788000002', (SELECT id FROM users WHERE email = 'driver@bus.com'), 'RW-2024-001', 1);
 
 -- Insert seats for BUS001 (4 seats)
 INSERT INTO seats (bus_id, seat_number, status) VALUES

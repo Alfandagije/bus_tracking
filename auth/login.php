@@ -49,7 +49,8 @@
             msg.className = 'message ' + (result.status === 'success' ? 'success' : 'error');
             msg.textContent = result.message;
             if (result.status === 'success') {
-                setTimeout(() => window.location.href = '../index.php', 1000);
+                const redirect = result.redirect || '../index.php';
+                setTimeout(() => window.location.href = redirect, 1000);
             }
         } catch (err) {
             document.getElementById('message').className = 'message error';
