@@ -8,9 +8,11 @@ require_once __DIR__ . '/../config/database.php';
 try { $db = getDb(); } catch (Exception $e) { $db = null; }
 $buses = [];
 $drivers = [];
+$routes = [];
 if ($db) {
-    try { $buses = $db->query("SELECT b.*, d.full_name as driver_name FROM buses b LEFT JOIN drivers d ON b.driver_id = d.id ORDER BY b.bus_code")->fetchAll(); } catch (Exception $e) {}
+    try { $buses = $db->query("SELECT b.*, d.full_name as driver_name, r.route_name FROM buses b LEFT JOIN drivers d ON b.driver_id = d.id LEFT JOIN routes r ON b.route_id = r.id ORDER BY b.bus_code")->fetchAll(); } catch (Exception $e) {}
     try { $drivers = $db->query("SELECT id, full_name, license_number FROM drivers WHERE status = 'active' ORDER BY full_name")->fetchAll(); } catch (Exception $e) {}
+    try { $routes = $db->query("SELECT id, route_name, origin, destination FROM routes WHERE status = 'active' ORDER BY route_name")->fetchAll(); } catch (Exception $e) {}
 }
 ?>
 <!DOCTYPE html>
@@ -70,13 +72,14 @@ if ($db) {
             <div class="table-container">
                 <table>
                     <thead><tr>
-                        <th>Code</th><th>Name</th><th>Seats</th><th>Fare</th><th>Driver</th><th>Status</th><th>Lat</th><th>Lng</th><th>Actions</th>
+                        <th>Code</th><th>Name</th><th>Route</th><th>Seats</th><th>Fare</th><th>Driver</th><th>Status</th><th>Lat</th><th>Lng</th><th>Actions</th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($buses as $bus): ?>
                         <tr id="bus-<?= sec($bus['id']) ?>">
                             <td><strong><?= sec($bus['bus_code']) ?></strong></td>
                             <td><?= sec($bus['bus_name']) ?></td>
+                            <td><?= $bus['route_name'] ? sec($bus['route_name']) : '<span style="color:#999;">Unassigned</span>' ?></td>
                             <td><?= sec($bus['total_seats']) ?></td>
                             <td>RWF <?= number_format(sec($bus['fare'] ?? 500)) ?></td>
                             <td><?= $bus['driver_name'] ? sec($bus['driver_name']) : '<span style="color:#999;">None</span>' ?></td>
@@ -127,6 +130,15 @@ if ($db) {
             </select>
         </div>
         <div class="form-group">
+            <label>Route</label>
+            <select id="busRoute">
+                <option value="">No Route</option>
+                <?php foreach ($routes as $r): ?>
+                    <option value="<?= sec($r['id']) ?>"><?= sec($r['route_name']) ?> (<?= sec($r['origin']) ?> → <?= sec($r['destination']) ?>)</option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="form-group">
             <label>Status</label>
             <select id="busStatus">
                 <option value="active">Active</option>
@@ -143,12 +155,12 @@ if ($db) {
 
 <script>
 function showAlert(msg,type){const e=document.getElementById('alertMessage');e.textContent=msg;e.className='message '+type;e.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}
-function openModal(){document.getElementById('modalTitle').textContent='Add Bus';document.getElementById('busId').value='';document.getElementById('busCode').value='';document.getElementById('busCode').disabled=false;document.getElementById('busName').value='';document.getElementById('busSeats').value='30';document.getElementById('busFare').value='500';document.getElementById('busDriver').value='';document.getElementById('busStatus').value='active';document.getElementById('busModal').classList.add('active');}
+function openModal(){document.getElementById('modalTitle').textContent='Add Bus';document.getElementById('busId').value='';document.getElementById('busCode').value='';document.getElementById('busCode').disabled=false;document.getElementById('busName').value='';document.getElementById('busSeats').value='30';document.getElementById('busFare').value='500';document.getElementById('busDriver').value='';document.getElementById('busRoute').value='';document.getElementById('busStatus').value='active';document.getElementById('busModal').classList.add('active');}
 function closeModal(){document.getElementById('busModal').classList.remove('active');}
-function editBus(b){document.getElementById('modalTitle').textContent='Edit Bus';document.getElementById('busId').value=b.id;document.getElementById('busCode').value=b.bus_code;document.getElementById('busCode').disabled=true;document.getElementById('busName').value=b.bus_name;document.getElementById('busSeats').value=b.total_seats;document.getElementById('busFare').value=b.fare||500;document.getElementById('busDriver').value=b.driver_id||'';document.getElementById('busStatus').value=b.status;document.getElementById('busModal').classList.add('active');}
+function editBus(b){document.getElementById('modalTitle').textContent='Edit Bus';document.getElementById('busId').value=b.id;document.getElementById('busCode').value=b.bus_code;document.getElementById('busCode').disabled=true;document.getElementById('busName').value=b.bus_name;document.getElementById('busSeats').value=b.total_seats;document.getElementById('busFare').value=b.fare||500;document.getElementById('busDriver').value=b.driver_id||'';document.getElementById('busRoute').value=b.route_id||'';document.getElementById('busStatus').value=b.status;document.getElementById('busModal').classList.add('active');}
 async function saveBus(){
     const id=document.getElementById('busId').value;
-    const body={bus_code:document.getElementById('busCode').value,bus_name:document.getElementById('busName').value,total_seats:parseInt(document.getElementById('busSeats').value),fare:parseFloat(document.getElementById('busFare').value),driver_id:document.getElementById('busDriver').value,status:document.getElementById('busStatus').value};
+    const body={bus_code:document.getElementById('busCode').value,bus_name:document.getElementById('busName').value,total_seats:parseInt(document.getElementById('busSeats').value),fare:parseFloat(document.getElementById('busFare').value),driver_id:document.getElementById('busDriver').value,route_id:document.getElementById('busRoute').value,status:document.getElementById('busStatus').value};
     if(id) body.id=parseInt(id);
     const action=id?'update':'create';
     const res=await fetch('../api/admin_manage_buses.php?action='+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

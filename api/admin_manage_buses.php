@@ -14,10 +14,12 @@ $action = $_GET['action'] ?? 'list';
 if ($method === 'GET' && $action === 'list') {
     $stmt = $db->query("
         SELECT b.*, d.full_name as driver_name, d.phone as driver_phone,
+               r.route_name, r.origin, r.destination,
                (SELECT COUNT(*) FROM seats WHERE bus_id = b.id) as seat_count,
                (SELECT COUNT(*) FROM seats WHERE bus_id = b.id AND status = 'booked') as booked_count
         FROM buses b
         LEFT JOIN drivers d ON b.driver_id = d.id
+        LEFT JOIN routes r ON b.route_id = r.id
         ORDER BY b.bus_code
     ");
     jsonResponse(['status' => 'success', 'data' => $stmt->fetchAll()]);
@@ -31,6 +33,7 @@ if ($method === 'POST' && $action === 'create') {
     $fare = floatval($data['fare'] ?? 500);
     $status = sanitize($data['status'] ?? 'active');
     $driver_id = !empty($data['driver_id']) ? intval($data['driver_id']) : null;
+    $route_id = !empty($data['route_id']) ? intval($data['route_id']) : null;
 
     if (!$bus_code || !$bus_name) {
         jsonResponse(['status' => 'error', 'message' => 'bus_code and bus_name required'], 400);
@@ -38,8 +41,8 @@ if ($method === 'POST' && $action === 'create') {
 
     try {
         $db->beginTransaction();
-        $stmt = $db->prepare("INSERT INTO buses (bus_code, bus_name, total_seats, fare, status, driver_id) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$bus_code, $bus_name, $total_seats, $fare, $status, $driver_id]);
+        $stmt = $db->prepare("INSERT INTO buses (bus_code, bus_name, total_seats, fare, status, driver_id, route_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$bus_code, $bus_name, $total_seats, $fare, $status, $driver_id, $route_id]);
         $bus_id = $db->lastInsertId();
 
         // Auto-create seats
@@ -70,6 +73,7 @@ if ($method === 'POST' && $action === 'update') {
     $fare = floatval($data['fare'] ?? 500);
     $status = sanitize($data['status'] ?? 'active');
     $driver_id = !empty($data['driver_id']) ? intval($data['driver_id']) : null;
+    $route_id = !empty($data['route_id']) ? intval($data['route_id']) : null;
 
     if (!$id) {
         jsonResponse(['status' => 'error', 'message' => 'Bus ID required'], 400);
@@ -79,8 +83,8 @@ if ($method === 'POST' && $action === 'update') {
     if ($driver_id) {
         $db->prepare("UPDATE buses SET driver_id = NULL WHERE driver_id = ? AND id != ?")->execute([$driver_id, $id]);
     }
-    $db->prepare("UPDATE buses SET bus_name = ?, fare = ?, status = ?, driver_id = ? WHERE id = ?")
-       ->execute([$bus_name, $fare, $status, $driver_id, $id]);
+    $db->prepare("UPDATE buses SET bus_name = ?, fare = ?, status = ?, driver_id = ?, route_id = ? WHERE id = ?")
+       ->execute([$bus_name, $fare, $status, $driver_id, $route_id, $id]);
     $db->commit();
     jsonResponse(['status' => 'success', 'message' => 'Bus updated']);
 }
