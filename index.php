@@ -278,6 +278,7 @@ async function loadSeats(busCode) {
 
             if (parseFloat(bus.current_lat)) {
                 map.panTo({ lat: parseFloat(bus.current_lat), lng: parseFloat(bus.current_lng) });
+                map.setZoom(16);
             }
         }
 
@@ -364,9 +365,33 @@ document.getElementById('busSelector').addEventListener('change', function() {
     if (currentBusCode) {
         document.getElementById('seatCard').style.display = 'block';
         loadSeats(currentBusCode);
+        // Immediately highlight and zoom to the selected bus
+        if (markers[currentBusCode]) {
+            const pos = markers[currentBusCode].getPosition();
+            map.panTo(pos);
+            map.setZoom(16);
+            markers[currentBusCode].setIcon({
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 18,
+                fillColor: getBusColor(currentBusCode),
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 4,
+                labelOrigin: new google.maps.Point(0, 4)
+            });
+            markers[currentBusCode].setZIndex(999);
+        }
     } else {
         document.getElementById('seatCard').style.display = 'none';
         document.getElementById('busInfoCard').style.display = 'none';
+        // Zoom back out to show all buses
+        const bounds = new google.maps.LatLngBounds();
+        let hasValid = false;
+        for (const code in markers) {
+            const pos = markers[code].getPosition();
+            if (pos) { bounds.extend(pos); hasValid = true; }
+        }
+        if (hasValid) map.fitBounds(bounds, 50);
     }
 });
 
@@ -392,6 +417,7 @@ async function refreshSelectedBus() {
 
             if (lat && lng) {
                 map.panTo({ lat, lng });
+                map.setZoom(16);
                 if (markers[currentBusCode]) {
                     smoothMoveGoogleMarker(markers[currentBusCode], lat, lng, currentBusCode);
                     markers[currentBusCode].setIcon({
