@@ -77,6 +77,9 @@
                     <span>Last update:</span>
                     <span id="lastUpdate" style="font-size:0.8rem;color:var(--gray-500);">-</span>
                 </div>
+                <button class="btn btn-primary" id="streetViewBtn" style="width:100%;margin-top:4px;display:none;" onclick="openStreetView()">
+                    🗺️ 3D Street View
+                </button>
             </div>
 
             <div class="card" id="seatCard" style="display:none;">
@@ -110,20 +113,28 @@ let infoWindows = {};
 let currentBusCode = '';
 let animationFrames = {};
 let initialFitDone = false;
+let userHasZoomed = false;
 
 function initMap() {
     const kigali = { lat: -1.9441, lng: 30.0619 };
     map = new google.maps.Map(document.getElementById('map'), {
         center: kigali,
         zoom: 13,
-        streetViewControl: false,
+        streetViewControl: true,
+        streetViewControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
         mapTypeControl: true,
         mapTypeControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT, mapTypeIds: ['roadmap', 'satellite', 'hybrid', 'terrain'] },
         fullscreenControl: true,
+        rotateControl: true,
+        tilt: 0,
         styles: [
             { featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] },
             { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] }
         ]
+    });
+
+    map.addListener('zoom_changed', function() {
+        userHasZoomed = true;
     });
 
     loadBuses();
@@ -182,6 +193,7 @@ async function loadBuses() {
         const res = await fetch('api/get_buses.php');
         const data = await res.json();
         const selector = document.getElementById('busSelector');
+        const previousSelection = selector.value || currentBusCode;
 
         if (data.status === 'success' && data.data.length > 0) {
             selector.innerHTML = '<option value="">Select a bus...</option>';
@@ -191,6 +203,11 @@ async function loadBuses() {
                 opt.textContent = `${bus.bus_code} - ${bus.bus_name}`;
                 selector.appendChild(opt);
             });
+
+            // Restore the previously selected bus after rebuilding
+            if (previousSelection) {
+                selector.value = previousSelection;
+            }
 
             const bounds = new google.maps.LatLngBounds();
             let hasValidCoords = false;
@@ -278,7 +295,6 @@ async function loadSeats(busCode) {
 
             if (parseFloat(bus.current_lat)) {
                 map.panTo({ lat: parseFloat(bus.current_lat), lng: parseFloat(bus.current_lng) });
-                map.setZoom(16);
             }
         }
 
@@ -355,6 +371,16 @@ async function bookSeat(busCode, seatNumber) {
     }
 }
 
+function openStreetView() {
+    if (!currentBusCode || !markers[currentBusCode]) return;
+    const pos = markers[currentBusCode].getPosition();
+    const sv = map.getStreetView();
+    sv.setPosition(pos);
+    sv.setPov({ heading: 0, pitch: 0 });
+    sv.setZoom(1);
+    sv.setVisible(true);
+}
+
 document.getElementById('busSelector').addEventListener('change', function() {
     // Reset previous selected bus marker to normal size
     for (const code in markers) {
@@ -363,7 +389,9 @@ document.getElementById('busSelector').addEventListener('change', function() {
     }
     currentBusCode = this.value;
     if (currentBusCode) {
+        userHasZoomed = false;
         document.getElementById('seatCard').style.display = 'block';
+        document.getElementById('streetViewBtn').style.display = 'block';
         loadSeats(currentBusCode);
         // Immediately highlight and zoom to the selected bus
         if (markers[currentBusCode]) {
@@ -384,6 +412,7 @@ document.getElementById('busSelector').addEventListener('change', function() {
     } else {
         document.getElementById('seatCard').style.display = 'none';
         document.getElementById('busInfoCard').style.display = 'none';
+        document.getElementById('streetViewBtn').style.display = 'none';
         // Zoom back out to show all buses
         const bounds = new google.maps.LatLngBounds();
         let hasValid = false;
@@ -416,8 +445,8 @@ async function refreshSelectedBus() {
             document.getElementById('lastUpdate').textContent = bus.last_update || 'Just now';
 
             if (lat && lng) {
+                if (!userHasZoomed) map.setZoom(16);
                 map.panTo({ lat, lng });
-                map.setZoom(16);
                 if (markers[currentBusCode]) {
                     smoothMoveGoogleMarker(markers[currentBusCode], lat, lng, currentBusCode);
                     markers[currentBusCode].setIcon({
