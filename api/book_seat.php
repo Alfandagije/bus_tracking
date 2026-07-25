@@ -77,6 +77,12 @@ try {
     $stmt->execute([$_SESSION['user_id']]);
     $user = $stmt->fetch();
     
+    $phone = $user['phone'] ?? '';
+    if (empty($phone)) {
+        $db->rollBack();
+        jsonResponse(['status' => 'error', 'message' => 'Phone number not found in your profile. Please update your profile first.'], 400);
+    }
+    
     $message = "BOOKING CONFIRMED\n";
     $message .= "Bus: {$bus['bus_name']} ({$bus_code})\n";
     $message .= "Seat: {$seat_number}\n";
@@ -86,8 +92,8 @@ try {
     $message .= "Payment: MTN MoMo\n";
     $message .= "Show this to driver. Travel safe!";
     
-    $stmt = $db->prepare("INSERT INTO sms_logs (booking_id, phone, message, status) VALUES (?, ?, ?, 'pending')");
-    $stmt->execute([$booking_id, $user['phone'], $message]);
+    $stmt = $db->prepare("INSERT INTO sms_logs (booking_id, bus_id, phone, message, status) VALUES (?, ?, ?, ?, 'pending')");
+    $stmt->execute([$booking_id, $bus['id'], $phone, $message]);
 
     $db->commit();
 
