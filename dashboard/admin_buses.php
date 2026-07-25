@@ -12,7 +12,7 @@ $routes = [];
 if ($db) {
     try { $buses = $db->query("SELECT b.*, d.full_name as driver_name, r.route_name FROM buses b LEFT JOIN drivers d ON b.driver_id = d.id LEFT JOIN routes r ON b.route_id = r.id ORDER BY b.bus_code")->fetchAll(); } catch (Exception $e) {}
     try { $drivers = $db->query("SELECT id, full_name, license_number FROM drivers WHERE status = 'active' ORDER BY full_name")->fetchAll(); } catch (Exception $e) {}
-    try { $routes = $db->query("SELECT id, route_name, origin, destination FROM routes WHERE status = 'active' ORDER BY route_name")->fetchAll(); } catch (Exception $e) {}
+    try { $routes = $db->query("SELECT id, route_name, origin, destination, base_price FROM routes WHERE status = 'active' ORDER BY route_name")->fetchAll(); } catch (Exception $e) {}
 }
 ?>
 <!DOCTYPE html>
@@ -131,10 +131,10 @@ if ($db) {
         </div>
         <div class="form-group">
             <label>Route</label>
-            <select id="busRoute">
+            <select id="busRoute" onchange="onRouteChange()">
                 <option value="">No Route</option>
                 <?php foreach ($routes as $r): ?>
-                    <option value="<?= sec($r['id']) ?>"><?= sec($r['route_name']) ?> (<?= sec($r['origin']) ?> → <?= sec($r['destination']) ?>)</option>
+                    <option value="<?= sec($r['id']) ?>" data-price="<?= sec($r['base_price']) ?>"><?= sec($r['route_name']) ?> (<?= sec($r['origin']) ?> → <?= sec($r['destination']) ?>)</option>
                 <?php endforeach; ?>
             </select>
         </div>
@@ -155,6 +155,7 @@ if ($db) {
 
 <script>
 function showAlert(msg,type){const e=document.getElementById('alertMessage');e.textContent=msg;e.className='message '+type;e.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}
+function onRouteChange(){const sel=document.getElementById('busRoute');const opt=sel.options[sel.selectedIndex];if(opt.dataset.price){document.getElementById('busFare').value=opt.dataset.price;}}
 function openModal(){document.getElementById('modalTitle').textContent='Add Bus';document.getElementById('busId').value='';document.getElementById('busCode').value='';document.getElementById('busCode').disabled=false;document.getElementById('busName').value='';document.getElementById('busSeats').value='30';document.getElementById('busFare').value='500';document.getElementById('busDriver').value='';document.getElementById('busRoute').value='';document.getElementById('busStatus').value='active';document.getElementById('busModal').classList.add('active');}
 function closeModal(){document.getElementById('busModal').classList.remove('active');}
 function editBus(b){document.getElementById('modalTitle').textContent='Edit Bus';document.getElementById('busId').value=b.id;document.getElementById('busCode').value=b.bus_code;document.getElementById('busCode').disabled=true;document.getElementById('busName').value=b.bus_name;document.getElementById('busSeats').value=b.total_seats;document.getElementById('busFare').value=b.fare||500;document.getElementById('busDriver').value=b.driver_id||'';document.getElementById('busRoute').value=b.route_id||'';document.getElementById('busStatus').value=b.status;document.getElementById('busModal').classList.add('active');}
