@@ -30,6 +30,7 @@ class BusReportPDF extends TCPDF {
     public $dateFrom = '';
     public $dateTo = '';
     public $busCode = '';
+    public $downloadedBy = '';
 
     public function Header() {
         $this->SetFont('helvetica', 'B', 18);
@@ -43,6 +44,9 @@ class BusReportPDF extends TCPDF {
         if ($this->busCode) $period .= " | Bus: {$this->busCode}";
         $this->Cell(0, 6, $period, 0, 1, 'C');
         $this->Cell(0, 6, 'Generated: ' . date('Y-m-d H:i:s'), 0, 1, 'C');
+        if ($this->downloadedBy) {
+            $this->Cell(0, 6, 'Downloaded by: ' . $this->downloadedBy, 0, 1, 'C');
+        }
         $this->Ln(3);
         $this->SetDrawColor(26, 115, 232);
         $this->SetLineWidth(0.5);
@@ -105,6 +109,7 @@ $pdf->reportTitle = ucfirst($report_type) . ' Report';
 $pdf->dateFrom = $date_from;
 $pdf->dateTo = $date_to;
 $pdf->busCode = $bus_code;
+$pdf->downloadedBy = $_SESSION['full_name'] ?? 'Unknown';
 
 $pdf->AddPage();
 
