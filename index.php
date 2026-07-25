@@ -109,34 +109,45 @@
 <script>
 function esc(str) { return String(str).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
 
-function haversineDistance(lat1, lng1, lat2, lng2) {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-              Math.sin(dLng/2) * Math.sin(dLng/2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
+let directionsService;
 
-function calculateETA(busCode) {
+async function fetchETA(busCode) {
     const route = busRouteData[busCode];
     if (!route || !route.dest_lat || !route.dest_lng) return null;
     const marker = markers[busCode];
     if (!marker) return null;
     const pos = marker.getPosition();
-    const distKm = haversineDistance(pos.lat(), pos.lng(), route.dest_lat, route.dest_lng);
-    const roadFactor = 1.4;
-    const avgSpeedKmh = 25;
-    const minutes = Math.round((distKm * roadFactor / avgSpeedKmh) * 60);
-    return { minutes, distanceKm: (distKm * roadFactor).toFixed(1), destination: route.destination };
+    const origin = new google.maps.LatLng(pos.lat(), pos.lng());
+    const destination = new google.maps.LatLng(route.dest_lat, route.dest_lng);
+
+    return new Promise((resolve) => {
+        directionsService.route({
+            origin: origin,
+            destination: destination,
+            travelMode: google.maps.TravelMode.DRIVING
+        }, (result, status) => {
+            if (status === 'OK' && result.routes.length > 0) {
+                const leg = result.routes[0].legs[0];
+                const totalSec = leg.duration.value;
+                const totalMin = Math.round(totalSec / 60);
+                const distKm = (leg.distance.value / 1000).toFixed(1);
+                resolve({ minutes: totalMin, distanceKm: distKm, destination: route.destination });
+            } else {
+                resolve(null);
+            }
+        });
+    });
 }
 
-function showETA(busCode) {
-    const eta = calculateETA(busCode);
+async function showETA(busCode) {
     const etaCard = document.getElementById('etaCard');
     const etaValue = document.getElementById('etaValue');
     const etaDist = document.getElementById('etaDistance');
+    etaCard.style.display = 'block';
+    etaValue.textContent = 'Calculating...';
+    etaDist.textContent = '';
+
+    const eta = await fetchETA(busCode);
     if (!eta) {
         etaCard.style.display = 'none';
         return;
@@ -151,7 +162,7 @@ function showETA(busCode) {
         const m = eta.minutes % 60;
         etaValue.textContent = h + 'h ' + m + 'min';
     }
-    etaDist.textContent = '~' + eta.distanceKm + ' km to ' + eta.destination;
+    etaDist.textContent = eta.distanceKm + ' km to ' + eta.destination;
 }
 
 let map;
@@ -184,6 +195,8 @@ function initMap() {
     map.addListener('zoom_changed', function() {
         userHasZoomed = true;
     });
+
+    directionsService = new google.maps.DirectionsService();
 
     loadBuses();
 }
