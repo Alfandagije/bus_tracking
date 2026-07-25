@@ -27,6 +27,10 @@ if ($method === 'POST' && $action === 'create') {
     $route_name = sanitize($data['route_name'] ?? '');
     $origin = sanitize($data['origin'] ?? '');
     $destination = sanitize($data['destination'] ?? '');
+    $origin_lat = $data['origin_lat'] ?? null;
+    $origin_lng = $data['origin_lng'] ?? null;
+    $dest_lat = $data['dest_lat'] ?? null;
+    $dest_lng = $data['dest_lng'] ?? null;
     $base_price = floatval($data['base_price'] ?? 500);
     $status = sanitize($data['status'] ?? 'active');
 
@@ -35,8 +39,8 @@ if ($method === 'POST' && $action === 'create') {
     }
 
     try {
-        $stmt = $db->prepare("INSERT INTO routes (route_name, origin, destination, base_price, status) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$route_name, $origin, $destination, $base_price, $status]);
+        $stmt = $db->prepare("INSERT INTO routes (route_name, origin, origin_lat, origin_lng, destination, dest_lat, dest_lng, base_price, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$route_name, $origin, $origin_lat, $origin_lng, $destination, $dest_lat, $dest_lng, $base_price, $status]);
         jsonResponse(['status' => 'success', 'message' => 'Route created', 'id' => $db->lastInsertId()], 201);
     } catch (Exception $e) {
         errorResponse('Failed to create route');
@@ -49,6 +53,10 @@ if ($method === 'POST' && $action === 'update') {
     $route_name = sanitize($data['route_name'] ?? '');
     $origin = sanitize($data['origin'] ?? '');
     $destination = sanitize($data['destination'] ?? '');
+    $origin_lat = $data['origin_lat'] ?? null;
+    $origin_lng = $data['origin_lng'] ?? null;
+    $dest_lat = $data['dest_lat'] ?? null;
+    $dest_lng = $data['dest_lng'] ?? null;
     $base_price = floatval($data['base_price'] ?? 500);
     $status = sanitize($data['status'] ?? 'active');
 
@@ -56,8 +64,8 @@ if ($method === 'POST' && $action === 'update') {
         jsonResponse(['status' => 'error', 'message' => 'Route ID required'], 400);
     }
 
-    $db->prepare("UPDATE routes SET route_name = ?, origin = ?, destination = ?, base_price = ?, status = ? WHERE id = ?")
-       ->execute([$route_name, $origin, $destination, $base_price, $status, $id]);
+    $db->prepare("UPDATE routes SET route_name = ?, origin = ?, origin_lat = ?, origin_lng = ?, destination = ?, dest_lat = ?, dest_lng = ?, base_price = ?, status = ? WHERE id = ?")
+       ->execute([$route_name, $origin, $origin_lat, $origin_lng, $destination, $dest_lat, $dest_lng, $base_price, $status, $id]);
 
     $db->prepare("UPDATE buses SET fare = ? WHERE route_id = ?")->execute([$base_price, $id]);
 

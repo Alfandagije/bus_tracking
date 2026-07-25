@@ -6,6 +6,7 @@ if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'mana
 }
 require_once __DIR__ . '/../config/database.php';
 try { $db = getDb(); } catch (Exception $e) { $db = null; }
+$hubs = json_decode(file_get_contents(__DIR__ . '/../data/hubs.json'), true);
 $routes = [];
 if ($db) {
     try {
@@ -109,12 +110,30 @@ if ($db) {
             <input type="text" id="routeName" placeholder="e.g. Kigali Express Route 4">
         </div>
         <div class="form-group">
-            <label>Origin</label>
-            <input type="text" id="routeOrigin" placeholder="e.g. Kigali City Center">
+            <label>Origin (Bus Hub/Terminal)</label>
+            <select id="routeOrigin" onchange="onHubSelect('origin')">
+                <option value="">Select origin hub...</option>
+                <?php foreach ($hubs as $hub): ?>
+                <option value="<?= sec($hub['name']) ?>" data-lat="<?= $hub['latitude'] ?>" data-lng="<?= $hub['longitude'] ?>"><?= sec($hub['name']) ?> (<?= sec($hub['city']) ?>)</option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="form-group" style="display:flex;gap:8px;">
+            <div style="flex:1;"><label>Origin Lat</label><input type="text" id="routeOriginLat" readonly style="background:#f5f5f5;"></div>
+            <div style="flex:1;"><label>Origin Lng</label><input type="text" id="routeOriginLng" readonly style="background:#f5f5f5;"></div>
         </div>
         <div class="form-group">
-            <label>Destination</label>
-            <input type="text" id="routeDest" placeholder="e.g. Kimironko">
+            <label>Destination (Bus Hub/Terminal)</label>
+            <select id="routeDest" onchange="onHubSelect('dest')">
+                <option value="">Select destination hub...</option>
+                <?php foreach ($hubs as $hub): ?>
+                <option value="<?= sec($hub['name']) ?>" data-lat="<?= $hub['latitude'] ?>" data-lng="<?= $hub['longitude'] ?>"><?= sec($hub['name']) ?> (<?= sec($hub['city']) ?>)</option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="form-group" style="display:flex;gap:8px;">
+            <div style="flex:1;"><label>Destination Lat</label><input type="text" id="routeDestLat" readonly style="background:#f5f5f5;"></div>
+            <div style="flex:1;"><label>Destination Lng</label><input type="text" id="routeDestLng" readonly style="background:#f5f5f5;"></div>
         </div>
         <div class="form-group">
             <label>Base Price (RWF)</label>
@@ -136,12 +155,19 @@ if ($db) {
 
 <script>
 function showAlert(msg,type){const e=document.getElementById('alertMessage');e.textContent=msg;e.className='message '+type;e.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}
-function openModal(){document.getElementById('modalTitle').textContent='Add Route';document.getElementById('routeId').value='';document.getElementById('routeName').value='';document.getElementById('routeOrigin').value='';document.getElementById('routeDest').value='';document.getElementById('routePrice').value='500';document.getElementById('routeStatus').value='active';document.getElementById('routeModal').classList.add('active');}
+function onHubSelect(field){
+    const sel=document.getElementById(field==='origin'?'routeOrigin':'routeDest');
+    const opt=sel.options[sel.selectedIndex];
+    document.getElementById(field==='origin'?'routeOriginLat':'routeDestLat').value=opt.dataset.lat||'';
+    document.getElementById(field==='origin'?'routeOriginLng':'routeDestLng').value=opt.dataset.lng||'';
+}
+function openModal(){document.getElementById('modalTitle').textContent='Add Route';document.getElementById('routeId').value='';document.getElementById('routeName').value='';document.getElementById('routeOrigin').value='';document.getElementById('routeDest').value='';document.getElementById('routeOriginLat').value='';document.getElementById('routeOriginLng').value='';document.getElementById('routeDestLat').value='';document.getElementById('routeDestLng').value='';document.getElementById('routePrice').value='500';document.getElementById('routeStatus').value='active';document.getElementById('routeModal').classList.add('active');}
 function closeModal(){document.getElementById('routeModal').classList.remove('active');}
-function editRoute(r){document.getElementById('modalTitle').textContent='Edit Route';document.getElementById('routeId').value=r.id;document.getElementById('routeName').value=r.route_name;document.getElementById('routeOrigin').value=r.origin;document.getElementById('routeDest').value=r.destination;document.getElementById('routePrice').value=r.base_price||500;document.getElementById('routeStatus').value=r.status;document.getElementById('routeModal').classList.add('active');}
+function selectHubOption(selectId, hubName){const sel=document.getElementById(selectId);for(let i=0;i<sel.options.length;i++){if(sel.options[i].value===hubName){sel.selectedIndex=i;onHubSelect(selectId==='routeOrigin'?'origin':'dest');return;}}sel.selectedIndex=0;}
+function editRoute(r){document.getElementById('modalTitle').textContent='Edit Route';document.getElementById('routeId').value=r.id;document.getElementById('routeName').value=r.route_name;selectHubOption('routeOrigin',r.origin);selectHubOption('routeDest',r.destination);document.getElementById('routeOriginLat').value=r.origin_lat||'';document.getElementById('routeOriginLng').value=r.origin_lng||'';document.getElementById('routeDestLat').value=r.dest_lat||'';document.getElementById('routeDestLng').value=r.dest_lng||'';document.getElementById('routePrice').value=r.base_price||500;document.getElementById('routeStatus').value=r.status;document.getElementById('routeModal').classList.add('active');}
 async function saveRoute(){
     const id=document.getElementById('routeId').value;
-    const body={route_name:document.getElementById('routeName').value,origin:document.getElementById('routeOrigin').value,destination:document.getElementById('routeDest').value,base_price:parseFloat(document.getElementById('routePrice').value),status:document.getElementById('routeStatus').value};
+    const body={route_name:document.getElementById('routeName').value,origin:document.getElementById('routeOrigin').value,destination:document.getElementById('routeDest').value,origin_lat:parseFloat(document.getElementById('routeOriginLat').value)||null,origin_lng:parseFloat(document.getElementById('routeOriginLng').value)||null,dest_lat:parseFloat(document.getElementById('routeDestLat').value)||null,dest_lng:parseFloat(document.getElementById('routeDestLng').value)||null,base_price:parseFloat(document.getElementById('routePrice').value),status:document.getElementById('routeStatus').value};
     if(id) body.id=parseInt(id);
     const action=id?'update':'create';
     const res=await fetch('../api/admin_routes.php?action='+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

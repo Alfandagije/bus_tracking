@@ -1,0 +1,104 @@
+[
+  {
+    "id": "hub-001",
+    "name": "Nyabugogo Bus Park (Central Terminal)",
+    "type": "Central Hub",
+    "city": "Kigali",
+    "latitude": -1.9408,
+    "longitude": 30.0449
+  },
+  {
+    "id": "hub-002",
+    "name": "Kigali Downtown Bus Terminal (Nyarugenge / CBD Terminal)",
+    "type": "Urban Terminal",
+    "city": "Kigali",
+    "latitude": -1.9435,
+    "longitude": 30.0573
+  },
+  {
+    "id": "hub-003",
+    "name": "Remera Bus Station (Remera Taxi Park)",
+    "type": "Urban Hub",
+    "city": "Kigali",
+    "latitude": -1.9587,
+    "longitude": 30.1191
+  },
+  {
+    "id": "hub-004",
+    "name": "Kimironko Bus Station",
+    "type": "Urban Hub",
+    "city": "Kigali",
+    "latitude": -1.9496,
+    "longitude": 30.1256
+  },
+  {
+    "id": "hub-005",
+    "name": "Nyamirambo Bus Terminal",
+    "type": "Urban Hub",
+    "city": "Kigali",
+    "latitude": -1.9691,
+    "longitude": 30.0514
+  },
+  {
+    "id": "hub-006",
+    "name": "Kabuga Bus Park",
+    "type": "Urban Terminal",
+    "city": "Kabuga",
+    "latitude": -1.9792,
+    "longitude": 30.2235
+  },
+  {
+    "id": "hub-007",
+    "name": "Musanze Bus Park",
+    "type": "Provincial Hub",
+    "city": "Musanze (Ruhengeri)",
+    "province": "Northern Province",
+    "latitude": -1.5117,
+    "longitude": 29.6416
+  },
+  {
+    "id": "hub-008",
+    "name": "Gisenyi Bus Station",
+    "type": "Provincial Hub",
+    "city": "Rubavu (Gisenyi)",
+    "province": "Western Province",
+    "latitude": -1.6912,
+    "longitude": 29.2563
+  },
+  {
+    "id": "hub-009",
+    "name": "Huye Bus Park",
+    "type": "Provincial Hub",
+    "city": "Huye (Butare)",
+    "province": "Southern Province",
+    "latitude": -2.5951,
+    "longitude": 29.7425
+  },
+  {
+    "id": "hub-010",
+    "name": "Rusizi Bus Station",
+    "type": "Provincial Hub",
+    "city": "Rusizi (Cyangugu)",
+    "province": "Western Province",
+    "latitude": -2.4842,
+    "longitude": 28.8973
+  },
+  {
+    "id": "hub-011",
+    "name": "Rwamagana Bus Park",
+    "type": "Provincial Hub",
+    "city": "Rwamagana",
+    "province": "Eastern Province",
+    "latitude": -1.9483,
+    "longitude": 30.4347
+  },
+  {
+    "id": "hub-012",
+    "name": "Nyagatare Bus Park",
+    "type": "Provincial Hub",
+    "city": "Nyagatare",
+    "province": "Eastern Province",
+    "latitude": -1.2982,
+    "longitude": 30.3251
+  }
+]
