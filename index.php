@@ -10,7 +10,7 @@
     <script>
         const GOOGLE_MAPS_API_KEY = '<?= GOOGLE_MAPS_API_KEY ?>';
     </script>
-    <script src="https://maps.googleapis.com/maps/api/js?key=<?= GOOGLE_MAPS_API_KEY ?>&callback=initMap&libraries=geometry" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=<?= GOOGLE_MAPS_API_KEY ?>&callback=initMap&libraries=geometry&loading=async" defer></script>
     <style>
         #map { height: 100%; width: 100%; }
         .bus-marker-label {
@@ -213,6 +213,10 @@ function initMap() {
     directionsService = new google.maps.DirectionsService();
 
     loadBuses();
+    setInterval(async () => {
+        await loadBuses();
+        await refreshSelectedBus();
+    }, 3000);
 }
 
 const busColors = ['#1a73e8', '#ea4335', '#34a853', '#fbbc04', '#9334e6', '#e67e22', '#2c3e50'];
@@ -236,11 +240,13 @@ function createBusMarkerIcon(busCode) {
 }
 
 function smoothMoveGoogleMarker(marker, targetLat, targetLng, busCode, duration = 2000) {
+    if (!marker || !marker.getPosition) return;
+    const startPos = marker.getPosition();
+    if (!startPos) return;
     if (animationFrames[busCode]) {
         cancelAnimationFrame(animationFrames[busCode]);
     }
 
-    const startPos = marker.getPosition();
     const startLat = startPos.lat();
     const startLng = startPos.lng();
     const startTime = performance.now();
@@ -607,11 +613,6 @@ async function refreshSelectedBus() {
         console.error('Refresh error:', err);
     }
 }
-
-setInterval(async () => {
-    await loadBuses();
-    await refreshSelectedBus();
-}, 3000);
 
 </script>
 <script>
