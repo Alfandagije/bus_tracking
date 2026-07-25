@@ -32,10 +32,14 @@ try {
 
     $bus_id = $bus['id'];
 
-    // Update GPS
+    // Update GPS — reject null-island (0,0) to preserve last known location
     if ($lat !== null && $lng !== null) {
-        $stmt = $db->prepare("UPDATE buses SET current_lat = ?, current_lng = ?, last_update = NOW() WHERE id = ?");
-        $stmt->execute([$lat, $lng, $bus_id]);
+        $latVal = floatval($lat);
+        $lngVal = floatval($lng);
+        if ($latVal != 0.0 && $lngVal != 0.0) {
+            $stmt = $db->prepare("UPDATE buses SET current_lat = ?, current_lng = ?, last_update = NOW() WHERE id = ?");
+            $stmt->execute([$lat, $lng, $bus_id]);
+        }
     }
 
     // Update seats — map digital values (0/1) to sensor status

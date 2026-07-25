@@ -310,6 +310,11 @@ String sendAT(String cmd, int timeout)
 
 void sendBusData()
 {
+    if (!gps.location.isValid()) {
+        Serial.println("[DATA] Skipping update - no GPS fix yet");
+        return;
+    }
+
     String url =
         URL_UPDATE +
         "?bus_id=" + BUS_ID +
