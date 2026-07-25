@@ -141,6 +141,7 @@ async function fetchETA(busCode) {
 
 let lastETALabel = '';
 let lastETADist = '';
+let isLoadingBuses = false;
 
 async function showETA(busCode) {
     const etaCard = document.getElementById('etaCard');
@@ -264,6 +265,7 @@ async function loadBuses() {
         const previousSelection = selector.value || currentBusCode;
 
         if (data.status === 'success' && data.data.length > 0) {
+            isLoadingBuses = true;
             selector.innerHTML = '<option value="">Select a bus...</option>';
             data.data.forEach(bus => {
                 const opt = document.createElement('option');
@@ -276,6 +278,7 @@ async function loadBuses() {
             if (previousSelection) {
                 selector.value = previousSelection;
             }
+            isLoadingBuses = false;
 
             const bounds = new google.maps.LatLngBounds();
             let hasValidCoords = false;
@@ -450,6 +453,7 @@ async function bookSeat(busCode, seatNumber) {
 }
 
 document.getElementById('busSelector').addEventListener('change', function() {
+    if (isLoadingBuses) return;
     // Reset previous selected bus marker to normal size
     for (const code in markers) {
         markers[code].setIcon(createBusMarkerIcon(code));
