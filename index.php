@@ -139,30 +139,37 @@ async function fetchETA(busCode) {
     });
 }
 
+let lastETALabel = '';
+let lastETADist = '';
+
 async function showETA(busCode) {
     const etaCard = document.getElementById('etaCard');
     const etaValue = document.getElementById('etaValue');
     const etaDist = document.getElementById('etaDistance');
     etaCard.style.display = 'block';
-    etaValue.textContent = 'Calculating...';
-    etaDist.textContent = '';
 
     const eta = await fetchETA(busCode);
     if (!eta) {
-        etaCard.style.display = 'none';
+        if (!lastETALabel) etaCard.style.display = 'none';
         return;
     }
-    etaCard.style.display = 'block';
+
+    let label;
     if (eta.minutes < 1) {
-        etaValue.textContent = 'Arriving now';
+        label = 'Arriving now';
     } else if (eta.minutes < 60) {
-        etaValue.textContent = eta.minutes + ' min';
+        label = eta.minutes + ' min';
     } else {
         const h = Math.floor(eta.minutes / 60);
         const m = eta.minutes % 60;
-        etaValue.textContent = h + 'h ' + m + 'min';
+        label = h + 'h ' + m + 'min';
     }
-    etaDist.textContent = eta.distanceKm + ' km to ' + eta.destination;
+    const dist = eta.distanceKm + ' km to ' + eta.destination;
+
+    etaValue.textContent = label;
+    etaDist.textContent = dist;
+    lastETALabel = label;
+    lastETADist = dist;
 }
 
 let map;
@@ -451,6 +458,7 @@ document.getElementById('busSelector').addEventListener('change', function() {
     currentBusCode = this.value;
     if (currentBusCode) {
         userHasZoomed = false;
+        lastETALabel = '';
         document.getElementById('seatCard').style.display = 'block';
         loadSeats(currentBusCode);
         showETA(currentBusCode);
