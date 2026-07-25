@@ -67,5 +67,6 @@
         btn.textContent = 'Register';
     });
     </script>
+<?php include '../partials/footer.php'; ?>
 </body>
 </html>

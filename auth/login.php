@@ -60,5 +60,6 @@
         btn.textContent = 'Login';
     });
     </script>
+<?php include '../partials/footer.php'; ?>
 </body>
 </html>

@@ -261,5 +261,6 @@ document.getElementById('sidebarOverlay')?.addEventListener('click', function() 
     document.getElementById('sidebarOverlay').classList.remove('open');
 });
 </script>
+<?php include '../partials/footer.php'; ?>
 </body>
 </html>

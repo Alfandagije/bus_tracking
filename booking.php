@@ -367,5 +367,6 @@ document.addEventListener('click', function(e) {
     }
 });
 </script>
+<?php include 'partials/footer.php'; ?>
 </body>
 </html>

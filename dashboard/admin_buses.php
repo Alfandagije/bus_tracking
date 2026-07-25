@@ -177,5 +177,6 @@ if(window.innerWidth<992){document.getElementById('sidebarToggle').style.display
 document.getElementById('sidebarToggle')?.addEventListener('click',function(){document.getElementById('adminSidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('open');});
 document.getElementById('sidebarOverlay')?.addEventListener('click',function(){document.getElementById('adminSidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('open');});
 </script>
+<?php include '../partials/footer.php'; ?>
 </body>
 </html>
