@@ -139,21 +139,24 @@ async function fetchETA(busCode) {
     });
 }
 
-let lastETALabel = '';
-let lastETADist = '';
 let isLoadingBuses = false;
+let etaRequestId = 0;
+let etaVisible = false;
 
 async function showETA(busCode) {
+    const myId = ++etaRequestId;
     const etaCard = document.getElementById('etaCard');
     const etaValue = document.getElementById('etaValue');
     const etaDist = document.getElementById('etaDistance');
-    etaCard.style.display = 'block';
+
+    if (!etaVisible) {
+        etaCard.style.display = 'block';
+        etaVisible = true;
+    }
 
     const eta = await fetchETA(busCode);
-    if (!eta) {
-        if (!lastETALabel) etaCard.style.display = 'none';
-        return;
-    }
+    if (myId !== etaRequestId) return;
+    if (!eta) return;
 
     let label;
     if (eta.minutes < 1) {
@@ -165,12 +168,8 @@ async function showETA(busCode) {
         const m = eta.minutes % 60;
         label = h + 'h ' + m + 'min';
     }
-    const dist = eta.distanceKm + ' km to ' + eta.destination;
-
     etaValue.textContent = label;
-    etaDist.textContent = dist;
-    lastETALabel = label;
-    lastETADist = dist;
+    etaDist.textContent = eta.distanceKm + ' km to ' + eta.destination;
 }
 
 let map;
@@ -301,7 +300,9 @@ async function loadBuses() {
                     };
 
                     if (markers[bus.bus_code]) {
-                        smoothMoveGoogleMarker(markers[bus.bus_code], lat, lng, bus.bus_code);
+                        if (bus.bus_code !== currentBusCode) {
+                            smoothMoveGoogleMarker(markers[bus.bus_code], lat, lng, bus.bus_code);
+                        }
                     } else {
                         const marker = new google.maps.Marker({
                             position: latLng,
@@ -462,7 +463,7 @@ document.getElementById('busSelector').addEventListener('change', function() {
     currentBusCode = this.value;
     if (currentBusCode) {
         userHasZoomed = false;
-        lastETALabel = '';
+        etaVisible = false;
         document.getElementById('seatCard').style.display = 'block';
         loadSeats(currentBusCode);
         showETA(currentBusCode);
@@ -533,50 +534,67 @@ async function refreshSelectedBus() {
                     });
                     markers[currentBusCode].setZIndex(999);
                 }
-                showETA(currentBusCode);
             }
+            showETA(currentBusCode);
         }
 
         if (seatsData.status === 'success') {
             const seats = seatsData.data;
-            const grid = document.getElementById('seatGrid');
             const total = seats.length;
             const available = seats.filter(s => s.status === 'available').length;
             document.getElementById('seatCount').textContent = `${available}/${total} Free`;
 
-            grid.innerHTML = '';
-            const colMap = { A1: 1, A2: 4, A3: 1, A4: 4 };
-            const rowMap = { A1: 1, A2: 1, A3: 2, A4: 2 };
-            const icons = { available: 'seat.svg', occupied: 'person.svg', booked: 'lock.svg' };
-            seats.forEach(seat => {
-                const div = document.createElement('div');
-                div.className = `seat ${seat.status}`;
-                div.style.gridColumn = colMap[seat.seat_number] || '1';
-                div.style.gridRow = rowMap[seat.seat_number] || '1';
-                const img = document.createElement('img');
-                img.className = 'seat-icon';
-                img.src = `assets/icons/${icons[seat.status] || 'seat.svg'}`;
-                img.alt = seat.status;
-                div.appendChild(img);
-                const span = document.createElement('span');
-                span.textContent = seat.seat_number;
-                div.appendChild(span);
-                div.dataset.seatNumber = seat.seat_number;
-                div.dataset.status = seat.status;
+            const grid = document.getElementById('seatGrid');
+            if (grid.children.length !== seats.length || grid.dataset.busCode !== currentBusCode) {
+                grid.dataset.busCode = currentBusCode;
+                grid.innerHTML = '';
+                const colMap = { A1: 1, A2: 4, A3: 1, A4: 4 };
+                const rowMap = { A1: 1, A2: 1, A3: 2, A4: 2 };
+                const icons = { available: 'seat.svg', occupied: 'person.svg', booked: 'lock.svg' };
+                seats.forEach(seat => {
+                    const div = document.createElement('div');
+                    div.className = `seat ${seat.status}`;
+                    div.style.gridColumn = colMap[seat.seat_number] || '1';
+                    div.style.gridRow = rowMap[seat.seat_number] || '1';
+                    const img = document.createElement('img');
+                    img.className = 'seat-icon';
+                    img.src = `assets/icons/${icons[seat.status] || 'seat.svg'}`;
+                    img.alt = seat.status;
+                    div.appendChild(img);
+                    const span = document.createElement('span');
+                    span.textContent = seat.seat_number;
+                    div.appendChild(span);
+                    div.dataset.seatNumber = seat.seat_number;
+                    div.dataset.status = seat.status;
 
-                if (seat.status === 'available') {
-                    div.addEventListener('click', () => {
-                        if (<?= isset($_SESSION['user_id']) ? 'true' : 'false' ?>) {
-                            bookSeat(currentBusCode, seat.seat_number);
-                        } else {
-                            alert('Please login to book a seat');
-                            window.location.href = 'auth/login.php';
-                        }
-                    });
-                }
+                    if (seat.status === 'available') {
+                        div.addEventListener('click', () => {
+                            if (<?= isset($_SESSION['user_id']) ? 'true' : 'false' ?>) {
+                                bookSeat(currentBusCode, seat.seat_number);
+                            } else {
+                                alert('Please login to book a seat');
+                                window.location.href = 'auth/login.php';
+                            }
+                        });
+                    }
 
-                grid.appendChild(div);
-            });
+                    grid.appendChild(div);
+                });
+            } else {
+                const colMap = { A1: 1, A2: 4, A3: 1, A4: 4 };
+                const rowMap = { A1: 1, A2: 1, A3: 2, A4: 2 };
+                const icons = { available: 'seat.svg', occupied: 'person.svg', booked: 'lock.svg' };
+                seats.forEach((seat, i) => {
+                    const div = grid.children[i];
+                    if (!div) return;
+                    if (div.dataset.status !== seat.status) {
+                        div.className = `seat ${seat.status}`;
+                        div.querySelector('img').src = `assets/icons/${icons[seat.status] || 'seat.svg'}`;
+                        div.querySelector('img').alt = seat.status;
+                        div.dataset.status = seat.status;
+                    }
+                });
+            }
         }
     } catch (err) {
         console.error('Refresh error:', err);
