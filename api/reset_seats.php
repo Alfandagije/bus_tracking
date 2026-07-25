@@ -61,7 +61,7 @@ try {
     $activeBookings = $stmt->fetchAll();
 
     $cancelBooking = $db->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ?");
-    $insertSms = $db->prepare("INSERT INTO sms_logs (booking_id, phone, message, status) VALUES (?, ?, ?, 'pending')");
+    $insertSms = $db->prepare("INSERT INTO sms_logs (booking_id, bus_id, phone, message, status) VALUES (?, ?, ?, ?, 'pending')");
 
     $resetCount = 0;
     foreach ($activeBookings as $bk) {
@@ -71,7 +71,7 @@ try {
         $msg .= "Seat: {$bk['seat_number']}\n";
         $msg .= "Booking #{$bk['id']} has been completed.\n";
         $msg .= "Thank you for traveling with us!";
-        $insertSms->execute([$bk['id'], $bk['phone'], $msg]);
+        $insertSms->execute([$bk['id'], $target_bus_id, $bk['phone'], $msg]);
         $resetCount++;
     }
 

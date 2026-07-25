@@ -60,7 +60,7 @@ try {
     ");
 
     $insert_sms_stmt = $db->prepare("
-        INSERT INTO sms_logs (booking_id, phone, message, status) VALUES (?, ?, ?, 'pending')
+        INSERT INTO sms_logs (booking_id, bus_id, phone, message, status) VALUES (?, ?, ?, ?, 'pending')
     ");
 
     foreach ($booking_ids as $id) {
@@ -100,7 +100,7 @@ try {
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";
             $message .= "This booking has been cancelled.";
-            $insert_sms_stmt->execute([$id, $phone, $message]);
+            $insert_sms_stmt->execute([$id, $bus_id, $phone, $message]);
         } 
         else if ($old_status === 'cancelled') {
             // Re-activating a cancelled booking: check if seat is taken
@@ -122,7 +122,7 @@ try {
             $message .= "Amount: RWF " . number_format($amount) . "\n";
             $message .= "Status: " . strtoupper($status) . "\n";
             $message .= "Travel safe!";
-            $insert_sms_stmt->execute([$id, $phone, $message]);
+            $insert_sms_stmt->execute([$id, $bus_id, $phone, $message]);
         } 
         else if ($status === 'paid' && $old_status === 'pending') {
             // Payment confirmation SMS with full ticket details
@@ -135,12 +135,12 @@ try {
             $message .= "Amount: RWF " . number_format($amount) . "\n";
             $message .= "Payment: PAID\n";
             $message .= "Show this to driver. Travel safe!";
-            $insert_sms_stmt->execute([$id, $phone, $message]);
+            $insert_sms_stmt->execute([$id, $bus_id, $phone, $message]);
         } 
         else if ($status === 'pending' && $old_status === 'paid') {
             // Simple update SMS
             $message = "Your booking #{$id} status has been updated back to PENDING.";
-            $insert_sms_stmt->execute([$id, $phone, $message]);
+            $insert_sms_stmt->execute([$id, $bus_id, $phone, $message]);
         }
 
         // Perform booking update

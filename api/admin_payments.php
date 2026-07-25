@@ -54,12 +54,12 @@ if ($method === 'POST' && $action === 'confirm') {
     $db->prepare("UPDATE bookings SET status = 'paid', payment_method = 'Confirmed by Admin' WHERE id = ? AND status = 'pending'")
        ->execute([$payment['booking_id']]);
 
-    $stmt = $db->prepare("SELECT b.bus_name, s.seat_number, u.phone FROM bookings bk JOIN buses b ON bk.bus_id = b.id JOIN seats s ON bk.seat_id = s.id JOIN users u ON bk.user_id = u.id WHERE bk.id = ?");
+    $stmt = $db->prepare("SELECT bk.bus_id, b.bus_name, s.seat_number, u.phone FROM bookings bk JOIN buses b ON bk.bus_id = b.id JOIN seats s ON bk.seat_id = s.id JOIN users u ON bk.user_id = u.id WHERE bk.id = ?");
     $stmt->execute([$payment['booking_id']]);
     $bk = $stmt->fetch();
     if ($bk) {
         $msg = "Payment confirmed for booking #{$payment['booking_id']} on {$bk['bus_name']} (Seat {$bk['seat_number']}). Amount: RWF " . number_format($payment['amount']) . ". Status: PAID. Travel safe!";
-        $db->prepare("INSERT INTO sms_logs (booking_id, phone, message, status) VALUES (?, ?, ?, 'pending')")->execute([$payment['booking_id'], $bk['phone'], $msg]);
+        $db->prepare("INSERT INTO sms_logs (booking_id, bus_id, phone, message, status) VALUES (?, ?, ?, ?, 'pending')")->execute([$payment['booking_id'], $bk['bus_id'], $bk['phone'], $msg]);
     }
     $db->commit();
     jsonResponse(['status' => 'success', 'message' => 'Payment confirmed']);

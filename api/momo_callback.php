@@ -45,7 +45,7 @@ try {
                ->execute([$payment['booking_id']]);
 
             $stmt = $db->prepare("
-                SELECT b.bus_name, s.seat_number, u.phone, u.full_name
+                SELECT bk.bus_id, b.bus_name, s.seat_number, u.phone, u.full_name
                 FROM bookings bk
                 JOIN buses b ON bk.bus_id = b.id
                 JOIN seats s ON bk.seat_id = s.id
@@ -57,8 +57,8 @@ try {
 
             if ($booking) {
                 $msg = "Payment confirmed for booking #{$payment['booking_id']} on {$booking['bus_name']} (Seat {$booking['seat_number']}). Amount: RWF " . number_format($booking['fare'] ?? 500) . ". Status: PAID. Travel safe!";
-                $db->prepare("INSERT INTO sms_logs (booking_id, phone, message, status) VALUES (?, ?, ?, 'pending')")
-                   ->execute([$payment['booking_id'], $booking['phone'], $msg]);
+                $db->prepare("INSERT INTO sms_logs (booking_id, bus_id, phone, message, status) VALUES (?, ?, ?, ?, 'pending')")
+                   ->execute([$payment['booking_id'], $booking['bus_id'], $booking['phone'], $msg]);
             }
         } elseif ($new_status === 'failed') {
             $db->prepare("UPDATE bookings SET status = 'cancelled' WHERE id = ? AND status = 'pending'")
