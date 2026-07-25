@@ -77,7 +77,7 @@
                     <span>Last update:</span>
                     <span id="lastUpdate" style="font-size:0.8rem;color:var(--gray-500);">-</span>
                 </div>
-                <div id="etaCard" style="display:none;margin-top:8px;padding:8px 12px;background:var(--gray-50,#f8f9fa);border-radius:8px;">
+                <div style="margin-top:8px;padding:8px 12px;background:var(--gray-50,#f8f9fa);border-radius:8px;">
                     <div style="font-size:0.8rem;color:var(--gray-500);">Est. arrival to destination</div>
                     <div id="etaValue" style="font-size:1.3rem;font-weight:700;color:var(--primary);">--</div>
                     <div id="etaDistance" style="font-size:0.75rem;color:var(--gray-400);">--</div>
@@ -141,19 +141,9 @@ async function fetchETA(busCode) {
 
 let isLoadingBuses = false;
 let etaRequestId = 0;
-let etaVisible = false;
 
 async function showETA(busCode) {
     const myId = ++etaRequestId;
-    const etaCard = document.getElementById('etaCard');
-    const etaValue = document.getElementById('etaValue');
-    const etaDist = document.getElementById('etaDistance');
-
-    if (!etaVisible) {
-        etaCard.style.display = 'block';
-        etaVisible = true;
-    }
-
     const eta = await fetchETA(busCode);
     if (myId !== etaRequestId) return;
     if (!eta) return;
@@ -168,8 +158,8 @@ async function showETA(busCode) {
         const m = eta.minutes % 60;
         label = h + 'h ' + m + 'min';
     }
-    etaValue.textContent = label;
-    etaDist.textContent = eta.distanceKm + ' km to ' + eta.destination;
+    document.getElementById('etaValue').textContent = label;
+    document.getElementById('etaDistance').textContent = eta.distanceKm + ' km to ' + eta.destination;
 }
 
 let map;
@@ -463,7 +453,8 @@ document.getElementById('busSelector').addEventListener('change', function() {
     currentBusCode = this.value;
     if (currentBusCode) {
         userHasZoomed = false;
-        etaVisible = false;
+        document.getElementById('etaValue').textContent = '--';
+        document.getElementById('etaDistance').textContent = '--';
         document.getElementById('seatCard').style.display = 'block';
         loadSeats(currentBusCode);
         showETA(currentBusCode);
@@ -486,7 +477,6 @@ document.getElementById('busSelector').addEventListener('change', function() {
     } else {
         document.getElementById('seatCard').style.display = 'none';
         document.getElementById('busInfoCard').style.display = 'none';
-        document.getElementById('etaCard').style.display = 'none';
         // Zoom back out to show all buses
         const bounds = new google.maps.LatLngBounds();
         let hasValid = false;
