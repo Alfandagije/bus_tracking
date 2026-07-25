@@ -111,32 +111,49 @@ function esc(str) { return String(str).replace(/[&<>"']/g,function(m){return {'&
 
 let directionsService;
 
+function haversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
 async function fetchETA(busCode) {
     const route = busRouteData[busCode];
     if (!route || !route.dest_lat || !route.dest_lng) return null;
     const marker = markers[busCode];
     if (!marker) return null;
     const pos = marker.getPosition();
-    const origin = new google.maps.LatLng(pos.lat(), pos.lng());
-    const destination = new google.maps.LatLng(route.dest_lat, route.dest_lng);
+    const lat = pos.lat(), lng = pos.lng();
 
-    return new Promise((resolve) => {
-        directionsService.route({
-            origin: origin,
-            destination: destination,
-            travelMode: google.maps.TravelMode.DRIVING
-        }, (result, status) => {
-            if (status === 'OK' && result.routes.length > 0) {
-                const leg = result.routes[0].legs[0];
-                const totalSec = leg.duration.value;
-                const totalMin = Math.round(totalSec / 60);
-                const distKm = (leg.distance.value / 1000).toFixed(1);
-                resolve({ minutes: totalMin, distanceKm: distKm, destination: route.destination });
-            } else {
-                resolve(null);
-            }
+    try {
+        const result = await new Promise((resolve) => {
+            directionsService.route({
+                origin: new google.maps.LatLng(lat, lng),
+                destination: new google.maps.LatLng(route.dest_lat, route.dest_lng),
+                travelMode: google.maps.TravelMode.DRIVING
+            }, (result, status) => resolve({ result, status }));
         });
-    });
+        if (result.status === 'OK' && result.result.routes.length > 0) {
+            const leg = result.result.routes[0].legs[0];
+            return {
+                minutes: Math.round(leg.duration.value / 60),
+                distanceKm: (leg.distance.value / 1000).toFixed(1),
+                destination: route.destination
+            };
+        }
+        console.log('Directions API fallback to Haversine, status:', result.status);
+    } catch (e) {
+        console.log('Directions API error, fallback to Haversine:', e);
+    }
+
+    const distKm = haversineDistance(lat, lng, route.dest_lat, route.dest_lng);
+    const roadKm = distKm * 1.4;
+    const minutes = Math.round((roadKm / 25) * 60);
+    return { minutes, distanceKm: roadKm.toFixed(1), destination: route.destination };
 }
 
 let isLoadingBuses = false;
