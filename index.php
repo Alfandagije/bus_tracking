@@ -77,9 +77,11 @@
                     <span>Last update:</span>
                     <span id="lastUpdate" style="font-size:0.8rem;color:var(--gray-500);">-</span>
                 </div>
-                <button class="btn btn-primary" id="streetViewBtn" style="width:100%;margin-top:4px;display:none;" onclick="openStreetView()">
-                    🗺️ 3D Street View
-                </button>
+                <div id="etaCard" style="display:none;margin-top:8px;padding:8px 12px;background:var(--gray-50,#f8f9fa);border-radius:8px;">
+                    <div style="font-size:0.8rem;color:var(--gray-500);">Est. arrival to destination</div>
+                    <div id="etaValue" style="font-size:1.3rem;font-weight:700;color:var(--primary);">--</div>
+                    <div id="etaDistance" style="font-size:0.75rem;color:var(--gray-400);">--</div>
+                </div>
             </div>
 
             <div class="card" id="seatCard" style="display:none;">
@@ -107,6 +109,51 @@
 <script>
 function esc(str) { return String(str).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
 
+function haversineDistance(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2) * Math.sin(dLng/2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function calculateETA(busCode) {
+    const route = busRouteData[busCode];
+    if (!route || !route.dest_lat || !route.dest_lng) return null;
+    const marker = markers[busCode];
+    if (!marker) return null;
+    const pos = marker.getPosition();
+    const distKm = haversineDistance(pos.lat(), pos.lng(), route.dest_lat, route.dest_lng);
+    const roadFactor = 1.4;
+    const avgSpeedKmh = 25;
+    const minutes = Math.round((distKm * roadFactor / avgSpeedKmh) * 60);
+    return { minutes, distanceKm: (distKm * roadFactor).toFixed(1), destination: route.destination };
+}
+
+function showETA(busCode) {
+    const eta = calculateETA(busCode);
+    const etaCard = document.getElementById('etaCard');
+    const etaValue = document.getElementById('etaValue');
+    const etaDist = document.getElementById('etaDistance');
+    if (!eta) {
+        etaCard.style.display = 'none';
+        return;
+    }
+    etaCard.style.display = 'block';
+    if (eta.minutes < 1) {
+        etaValue.textContent = 'Arriving now';
+    } else if (eta.minutes < 60) {
+        etaValue.textContent = eta.minutes + ' min';
+    } else {
+        const h = Math.floor(eta.minutes / 60);
+        const m = eta.minutes % 60;
+        etaValue.textContent = h + 'h ' + m + 'min';
+    }
+    etaDist.textContent = '~' + eta.distanceKm + ' km to ' + eta.destination;
+}
+
 let map;
 let markers = {};
 let infoWindows = {};
@@ -114,6 +161,7 @@ let currentBusCode = '';
 let animationFrames = {};
 let initialFitDone = false;
 let userHasZoomed = false;
+let busRouteData = {};
 
 function initMap() {
     const kigali = { lat: -1.9441, lng: 30.0619 };
@@ -220,6 +268,15 @@ async function loadBuses() {
                     const latLng = { lat, lng };
                     bounds.extend(latLng);
 
+                    // Store route data for ETA calculation
+                    busRouteData[bus.bus_code] = {
+                        route_name: bus.route_name || null,
+                        origin: bus.origin || null,
+                        destination: bus.destination || null,
+                        dest_lat: bus.dest_lat ? parseFloat(bus.dest_lat) : null,
+                        dest_lng: bus.dest_lng ? parseFloat(bus.dest_lng) : null
+                    };
+
                     if (markers[bus.bus_code]) {
                         smoothMoveGoogleMarker(markers[bus.bus_code], lat, lng, bus.bus_code);
                     } else {
@@ -242,6 +299,7 @@ async function loadBuses() {
                                 <div style="padding:8px;min-width:180px;">
                                     <div style="font-size:18px;margin-bottom:6px;"><img src="assets/icons/bus.svg" class="icon" style="vertical-align:middle;"> <b>${esc(bus.bus_code)}</b></div>
                                     <div style="font-size:13px;color:#5f6368;">${esc(bus.bus_name)}</div>
+                                    ${bus.route_name ? '<div style="font-size:12px;color:#1a73e8;margin-top:2px;">📍 ' + esc(bus.route_name) + '</div>' : ''}
                                     <div style="font-size:12px;color:#9aa0a6;margin-top:4px;">
                                         Lat: ${lat.toFixed(6)}<br>
                                         Lng: ${lng.toFixed(6)}
@@ -371,16 +429,6 @@ async function bookSeat(busCode, seatNumber) {
     }
 }
 
-function openStreetView() {
-    if (!currentBusCode || !markers[currentBusCode]) return;
-    const pos = markers[currentBusCode].getPosition();
-    const sv = map.getStreetView();
-    sv.setPosition(pos);
-    sv.setPov({ heading: 0, pitch: 0 });
-    sv.setZoom(1);
-    sv.setVisible(true);
-}
-
 document.getElementById('busSelector').addEventListener('change', function() {
     // Reset previous selected bus marker to normal size
     for (const code in markers) {
@@ -391,8 +439,8 @@ document.getElementById('busSelector').addEventListener('change', function() {
     if (currentBusCode) {
         userHasZoomed = false;
         document.getElementById('seatCard').style.display = 'block';
-        document.getElementById('streetViewBtn').style.display = 'block';
         loadSeats(currentBusCode);
+        showETA(currentBusCode);
         // Immediately highlight and zoom to the selected bus
         if (markers[currentBusCode]) {
             const pos = markers[currentBusCode].getPosition();
@@ -412,7 +460,7 @@ document.getElementById('busSelector').addEventListener('change', function() {
     } else {
         document.getElementById('seatCard').style.display = 'none';
         document.getElementById('busInfoCard').style.display = 'none';
-        document.getElementById('streetViewBtn').style.display = 'none';
+        document.getElementById('etaCard').style.display = 'none';
         // Zoom back out to show all buses
         const bounds = new google.maps.LatLngBounds();
         let hasValid = false;
@@ -460,6 +508,7 @@ async function refreshSelectedBus() {
                     });
                     markers[currentBusCode].setZIndex(999);
                 }
+                showETA(currentBusCode);
             }
         }
 
