@@ -87,14 +87,14 @@ try {
     $amount = $bus['fare'] ?? 500;
 
     $message = "BOOKING CONFIRMED\n";
-    $message .= "Bus: {$bus['bus_name']} ({$bus_code})\n";
+    $message .= "Bus: {$bus['bus_name']}\n";
     $message .= "Seat: {$seat_number}\n";
     $message .= "Departs: {$departure_time}\n";
     $message .= "ID: #{$booking_id}\n";
     $message .= "Date: {$booking_date}\n";
     $message .= "Amount: RWF " . number_format($amount) . "\n";
-    $message .= "Payment: MTN MoMo\n";
-    $message .= "Show this to driver. Travel safe!";
+    $message .= "Pay: MTN MoMo\n";
+    $message .= "Travel safe!";
     
     $stmt = $db->prepare("INSERT INTO sms_logs (booking_id, bus_id, phone, message, status) VALUES (?, ?, ?, ?, 'pending')");
     $stmt->execute([$booking_id, $bus['id'], $phone, $message]);

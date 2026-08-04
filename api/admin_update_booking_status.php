@@ -137,8 +137,8 @@ try {
             $message .= "ID: #{$id}\n";
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";
-            $message .= "Payment: PAID\n";
-            $message .= "Show this to driver. Travel safe!";
+            $message .= "Pay: PAID\n";
+            $message .= "Travel safe!";
             $insert_sms_stmt->execute([$id, $bus_id, $phone, $message]);
         } 
         else if ($status === 'pending' && $old_status === 'paid') {
