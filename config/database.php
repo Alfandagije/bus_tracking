@@ -115,6 +115,20 @@ function sanitize($input) {
     return htmlspecialchars(strip_tags(trim($input)));
 }
 
+/**
+ * Project a point onto the route line (origin -> destination) and return
+ * progress as a fraction 0..1. Used to detect whether the live bus position
+ * has already passed the passenger's location along the route.
+ */
+function routeProgress($lat, $lng, $oLat, $oLng, $dLat, $dLng) {
+    $dx = $dLng - $oLng;
+    $dy = $dLat - $oLat;
+    $lenSq = $dx * $dx + $dy * $dy;
+    if ($lenSq == 0) return 0;
+    $t = (($lng - $oLng) * $dx + ($lat - $oLat) * $dy) / $lenSq;
+    return max(0.0, min(1.0, $t));
+}
+
 function sec($value) {
     return htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 }

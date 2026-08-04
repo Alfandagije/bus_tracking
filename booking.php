@@ -104,6 +104,38 @@ function esc(str) { return String(str).replace(/[&<>"']/g,function(m){return {'&
 
 let selectedSeat = null;
 let selectedBusCode = '';
+let busList = [];
+let passengerPos = null;
+let passengerPosReady = false;
+
+if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(function(pos) {
+        passengerPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        passengerPosReady = true;
+        renderBusOptions();
+    }, function() {
+        passengerPos = null;
+        passengerPosReady = true;
+    }, { timeout: 10000, maximumAge: 60000 });
+}
+
+function projectProgress(point, o, d) {
+    const dx = d.lng - o.lng, dy = d.lat - o.lat;
+    const lenSq = dx * dx + dy * dy;
+    if (lenSq === 0) return 0;
+    const t = ((point.lng - o.lng) * dx + (point.lat - o.lat) * dy) / lenSq;
+    return Math.max(0, Math.min(1, t));
+}
+
+function busPassedPassenger(bus) {
+    if (!passengerPos) return false;
+    if (!bus.origin_lat || !bus.dest_lat || !bus.current_lat) return false;
+    if (parseFloat(bus.current_lat) === 0 && parseFloat(bus.current_lng) === 0) return false;
+    const o = { lat: parseFloat(bus.origin_lat), lng: parseFloat(bus.origin_lng) };
+    const d = { lat: parseFloat(bus.dest_lat), lng: parseFloat(bus.dest_lng) };
+    const b = { lat: parseFloat(bus.current_lat), lng: parseFloat(bus.current_lng) };
+    return projectProgress(b, o, d) > projectProgress(passengerPos, o, d) + 0.01;
+}
 
 function formatTime(t) {
     if (!t) return 'TBA';
@@ -120,30 +152,57 @@ async function loadBuses() {
     try {
         const res = await fetch('api/get_buses.php');
         const data = await res.json();
-        const selector = document.getElementById('bookBusSelector');
         if (data.status === 'success') {
-            const active = (data.data || []).filter(b => b.status === 'active');
-            if (active.length > 0) {
-                selector.innerHTML = '<option value="">Choose a bus route...</option>';
-                active.forEach(bus => {
-                    const opt = document.createElement('option');
-                    opt.value = bus.bus_code;
-                    const route = (bus.origin && bus.destination) ? ` (${bus.origin} → ${bus.destination})` : '';
-                    const dep = formatTime(bus.departure_time);
-                    const fare = Number(bus.fare || 0).toLocaleString();
-                    opt.textContent = `${bus.bus_code} - ${bus.bus_name}${route} | Departs ${dep} | RWF ${fare}`;
-                    if (bus.departed == 1) {
-                        opt.disabled = true;
-                        opt.textContent += ' (Departed)';
-                    }
-                    selector.appendChild(opt);
-                });
-            } else {
-                selector.innerHTML = '<option value="">No active buses available</option>';
-            }
+            busList = (data.data || []).filter(b => b.status === 'active');
+            renderBusOptions();
         }
     } catch (err) {
         console.error(err);
+    }
+}
+
+function renderBusOptions() {
+    const selector = document.getElementById('bookBusSelector');
+    if (!selector) return;
+    const prevValue = selector.value;
+    let selectedNowBlocked = false;
+    if (busList.length > 0) {
+        selector.innerHTML = '<option value="">Choose a bus route...</option>';
+        busList.forEach(bus => {
+            const opt = document.createElement('option');
+            opt.value = bus.bus_code;
+            const route = (bus.origin && bus.destination) ? ` (${bus.origin} → ${bus.destination})` : '';
+            const dep = formatTime(bus.departure_time);
+            const fare = Number(bus.fare || 0).toLocaleString();
+            opt.textContent = `${bus.bus_code} - ${bus.bus_name}${route} | Departs ${dep} | RWF ${fare}`;
+            const passed = busPassedPassenger(bus);
+            if (bus.departed == 1 || passed) {
+                opt.disabled = true;
+                opt.textContent += passed ? ' (Bus passed your location)' : ' (Departed)';
+                if (prevValue === bus.bus_code) selectedNowBlocked = true;
+            }
+            selector.appendChild(opt);
+        });
+        if (prevValue && !selectedNowBlocked) selector.value = prevValue;
+    } else {
+        selector.innerHTML = '<option value="">No active buses available</option>';
+    }
+    if (selectedNowBlocked) {
+        const msg = document.getElementById('locationBlockMsg');
+        if (!msg) {
+            const p = document.createElement('p');
+            p.id = 'locationBlockMsg';
+            p.style.cssText = 'background:#fee2e2;border:1px solid #fca5a5;color:#b91c1c;border-radius:8px;padding:12px;margin-top:12px;';
+            p.innerHTML = 'Your selected bus has passed your location, so it can no longer be booked. Please choose another bus.';
+            document.getElementById('step1Content').appendChild(p);
+        }
+        selectedBusCode = '';
+        selectedSeat = null;
+        document.getElementById('step1').classList.add('active');
+        document.getElementById('step1').classList.remove('completed');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step1Content').style.display = 'block';
+        document.getElementById('step2Content').style.display = 'none';
     }
 }
 
@@ -332,7 +391,12 @@ async function confirmBookingAndPay() {
         const res = await fetch('api/book_seat.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ bus_code: selectedBusCode, seat_number: selectedSeat })
+            body: JSON.stringify({
+                bus_code: selectedBusCode,
+                seat_number: selectedSeat,
+                passenger_lat: passengerPos ? passengerPos.lat : null,
+                passenger_lng: passengerPos ? passengerPos.lng : null
+            })
         });
         const result = await res.json();
         
