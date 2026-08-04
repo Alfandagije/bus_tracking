@@ -31,6 +31,7 @@ if ($method === 'POST' && $action === 'create') {
     $bus_name = sanitize($data['bus_name'] ?? '');
     $total_seats = intval($data['total_seats'] ?? 30);
     $fare = floatval($data['fare'] ?? 500);
+    $departure_time = !empty($data['departure_time']) ? sanitize($data['departure_time']) : null;
     $status = sanitize($data['status'] ?? 'active');
     $driver_id = !empty($data['driver_id']) ? intval($data['driver_id']) : null;
     $route_id = !empty($data['route_id']) ? intval($data['route_id']) : null;
@@ -39,10 +40,14 @@ if ($method === 'POST' && $action === 'create') {
         jsonResponse(['status' => 'error', 'message' => 'bus_code and bus_name required'], 400);
     }
 
+    if ($departure_time && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $departure_time)) {
+        jsonResponse(['status' => 'error', 'message' => 'Invalid departure time format. Use HH:MM'], 400);
+    }
+
     try {
         $db->beginTransaction();
-        $stmt = $db->prepare("INSERT INTO buses (bus_code, bus_name, total_seats, fare, status, driver_id, route_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$bus_code, $bus_name, $total_seats, $fare, $status, $driver_id, $route_id]);
+        $stmt = $db->prepare("INSERT INTO buses (bus_code, bus_name, total_seats, fare, departure_time, status, driver_id, route_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$bus_code, $bus_name, $total_seats, $fare, $departure_time, $status, $driver_id, $route_id]);
         $bus_id = $db->lastInsertId();
 
         // Auto-create seats
@@ -71,6 +76,7 @@ if ($method === 'POST' && $action === 'update') {
     $id = intval($data['id'] ?? 0);
     $bus_name = sanitize($data['bus_name'] ?? '');
     $fare = floatval($data['fare'] ?? 500);
+    $departure_time = !empty($data['departure_time']) ? sanitize($data['departure_time']) : null;
     $status = sanitize($data['status'] ?? 'active');
     $driver_id = !empty($data['driver_id']) ? intval($data['driver_id']) : null;
     $route_id = !empty($data['route_id']) ? intval($data['route_id']) : null;
@@ -79,12 +85,16 @@ if ($method === 'POST' && $action === 'update') {
         jsonResponse(['status' => 'error', 'message' => 'Bus ID required'], 400);
     }
 
+    if ($departure_time && !preg_match('/^\d{2}:\d{2}(:\d{2})?$/', $departure_time)) {
+        jsonResponse(['status' => 'error', 'message' => 'Invalid departure time format. Use HH:MM'], 400);
+    }
+
     $db->beginTransaction();
     if ($driver_id) {
         $db->prepare("UPDATE buses SET driver_id = NULL WHERE driver_id = ? AND id != ?")->execute([$driver_id, $id]);
     }
-    $db->prepare("UPDATE buses SET bus_name = ?, fare = ?, status = ?, driver_id = ?, route_id = ? WHERE id = ?")
-       ->execute([$bus_name, $fare, $status, $driver_id, $route_id, $id]);
+    $db->prepare("UPDATE buses SET bus_name = ?, fare = ?, departure_time = ?, status = ?, driver_id = ?, route_id = ? WHERE id = ?")
+       ->execute([$bus_name, $fare, $departure_time, $status, $driver_id, $route_id, $id]);
     $db->commit();
     jsonResponse(['status' => 'success', 'message' => 'Bus updated']);
 }

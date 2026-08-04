@@ -33,6 +33,7 @@ CREATE TABLE buses (
     bus_name VARCHAR(100) NOT NULL,
     total_seats INT DEFAULT 4,
     fare DECIMAL(10,2) DEFAULT 500.00,
+    departure_time TIME DEFAULT NULL,
     route_id INT DEFAULT NULL,
     driver_id INT DEFAULT NULL,
     current_lat DECIMAL(10, 7) DEFAULT 0.0000000,
@@ -137,10 +138,10 @@ INSERT INTO users (full_name, email, phone, password, role) VALUES
 ('Jean Driver', 'driver@bus.com', '+250788000002', '$2y$10$z0XedUA97boWTZGCK7541.thamvg9iZucKaGTLgntBMzAMd.CZ2GO', 'driver');
 
 -- Default buses
-INSERT INTO buses (bus_code, bus_name, total_seats, fare, route_id, current_lat, current_lng) VALUES
-('BUS001', 'Kigali Express Route 1', 4, 500.00, 1, -1.9440727, 30.0618848),
-('BUS002', 'Kigali Express Route 2', 4, 500.00, 2, -1.9480000, 30.0580000),
-('BUS003', 'Kigali Express Route 3', 4, 500.00, 3, -1.9500000, 30.0650000);
+INSERT INTO buses (bus_code, bus_name, total_seats, fare, departure_time, route_id, current_lat, current_lng) VALUES
+('BUS001', 'Kigali Express Route 1', 4, 500.00, '08:00:00', 1, -1.9440727, 30.0618848),
+('BUS002', 'Kigali Express Route 2', 4, 500.00, '09:00:00', 2, -1.9480000, 30.0580000),
+('BUS003', 'Kigali Express Route 3', 4, 500.00, '10:00:00', 3, -1.9500000, 30.0650000);
 
 -- Default driver record (linked to driver user)
 INSERT INTO drivers (full_name, phone, user_id, license_number, assigned_bus_id) VALUES

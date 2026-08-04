@@ -57,6 +57,17 @@
 <script>
 function esc(str) { return String(str).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
 
+function formatTime(t) {
+    if (!t) return 'TBA';
+    const parts = String(t).split(':');
+    let h = parseInt(parts[0], 10);
+    if (isNaN(h)) return 'TBA';
+    const m = parts[1] || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + m + ' ' + ampm;
+}
+
 async function loadBookings() {
     try {
         const res = await fetch('api/get_bookings.php');
@@ -66,7 +77,7 @@ async function loadBookings() {
         if (data.status === 'success' && data.data.length > 0) {
             let html = `<div class="table-container"><table>
                 <thead><tr>
-                    <th>ID</th><th>Bus</th><th>Seat</th><th>Date</th><th>Status</th><th>Payment</th><th>Booked On</th>
+                    <th>ID</th><th>Bus</th><th>Seat</th><th>Date</th><th>Departs</th><th>Amount</th><th>Status</th><th>Payment</th><th>Booked On</th>
                 </tr></thead><tbody>`;
 
             data.data.forEach(b => {
@@ -76,6 +87,8 @@ async function loadBookings() {
                     <td>${esc(b.bus_code)} - ${esc(b.bus_name)}</td>
                     <td>${esc(b.seat_number)}</td>
                     <td>${esc(b.booking_date)}</td>
+                    <td>${esc(formatTime(b.departure_time))}</td>
+                    <td>RWF ${Number(b.fare || 0).toLocaleString()}</td>
                     <td><span class="badge ${statusClass}">${esc(b.status)}</span></td>
                     <td>${esc(b.payment_method || '-')}</td>
                     <td>${esc(b.created_at)}</td>

@@ -105,19 +105,42 @@ function esc(str) { return String(str).replace(/[&<>"']/g,function(m){return {'&
 let selectedSeat = null;
 let selectedBusCode = '';
 
+function formatTime(t) {
+    if (!t) return 'TBA';
+    const parts = String(t).split(':');
+    let h = parseInt(parts[0], 10);
+    if (isNaN(h)) return 'TBA';
+    const m = parts[1] || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + m + ' ' + ampm;
+}
+
 async function loadBuses() {
     try {
         const res = await fetch('api/get_buses.php');
         const data = await res.json();
         const selector = document.getElementById('bookBusSelector');
-        if (data.status === 'success' && data.data.length > 0) {
-            selector.innerHTML = '<option value="">Choose a bus route...</option>';
-            data.data.forEach(bus => {
-                const opt = document.createElement('option');
-                opt.value = bus.bus_code;
-                opt.textContent = `${bus.bus_code} - ${bus.bus_name} (${bus.total_seats} seats)`;
-                selector.appendChild(opt);
-            });
+        if (data.status === 'success') {
+            const active = (data.data || []).filter(b => b.status === 'active');
+            if (active.length > 0) {
+                selector.innerHTML = '<option value="">Choose a bus route...</option>';
+                active.forEach(bus => {
+                    const opt = document.createElement('option');
+                    opt.value = bus.bus_code;
+                    const route = (bus.origin && bus.destination) ? ` (${bus.origin} → ${bus.destination})` : '';
+                    const dep = formatTime(bus.departure_time);
+                    const fare = Number(bus.fare || 0).toLocaleString();
+                    opt.textContent = `${bus.bus_code} - ${bus.bus_name}${route} | Departs ${dep} | RWF ${fare}`;
+                    if (bus.departed == 1) {
+                        opt.disabled = true;
+                        opt.textContent += ' (Departed)';
+                    }
+                    selector.appendChild(opt);
+                });
+            } else {
+                selector.innerHTML = '<option value="">No active buses available</option>';
+            }
         }
     } catch (err) {
         console.error(err);
@@ -139,7 +162,9 @@ async function loadSeatsForBooking(busCode) {
                     <div class="bus-icon"><img src="assets/icons/bus.svg" class="icon-xl"></div>
                     <div class="bus-details">
                         <h3>${esc(busData.data.bus_code)} - ${esc(busData.data.bus_name)}</h3>
-                        <p><span class="badge badge-success">Active</span></p>
+                        <p><span class="badge badge-success">Active</span>
+                           <span class="badge badge-info">Departs ${esc(formatTime(busData.data.departure_time))}</span>
+                           <span class="badge badge-info">RWF ${Number(busData.data.fare || 0).toLocaleString()}</span></p>
                     </div>
                 `;
             }

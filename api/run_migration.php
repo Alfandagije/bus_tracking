@@ -45,6 +45,8 @@ $migrations = [
     "ALTER TABLE buses ADD COLUMN fare DECIMAL(10,2) DEFAULT 500.00 AFTER total_seats",
 
     "ALTER TABLE buses ADD COLUMN driver_id INT DEFAULT NULL AFTER fare",
+
+    "ALTER TABLE buses ADD COLUMN departure_time TIME DEFAULT NULL AFTER fare",
 ];
 
 $results = [];

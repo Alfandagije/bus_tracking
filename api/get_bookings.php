@@ -15,7 +15,7 @@ try {
     if (in_array($_SESSION['role'], ['admin', 'manager'])) {
         if ($bus_code) {
             $stmt = $db->prepare("
-                SELECT bk.id, b.bus_code, b.bus_name, s.seat_number, 
+                SELECT bk.id, b.bus_code, b.bus_name, b.fare, b.departure_time, s.seat_number, 
                        bk.booking_date, bk.status, bk.payment_method, bk.created_at,
                        u.full_name, u.phone, u.email
                 FROM bookings bk
@@ -28,7 +28,7 @@ try {
             $stmt->execute([$bus_code]);
         } else {
             $stmt = $db->query("
-                SELECT bk.id, b.bus_code, b.bus_name, s.seat_number, 
+                SELECT bk.id, b.bus_code, b.bus_name, b.fare, b.departure_time, s.seat_number, 
                        bk.booking_date, bk.status, bk.payment_method, bk.created_at,
                        u.full_name, u.phone, u.email
                 FROM bookings bk
@@ -49,7 +49,7 @@ try {
 
         if ($driverData && $driverData['assigned_bus_id']) {
             $stmt = $db->prepare("
-                SELECT bk.id, b.bus_code, b.bus_name, s.seat_number, 
+                SELECT bk.id, b.bus_code, b.bus_name, b.fare, b.departure_time, s.seat_number, 
                        bk.booking_date, bk.status, bk.payment_method, bk.created_at,
                        u.full_name, u.phone
                 FROM bookings bk
@@ -65,7 +65,7 @@ try {
         }
     } else {
         $stmt = $db->prepare("
-            SELECT bk.id, b.bus_code, b.bus_name, s.seat_number, 
+            SELECT bk.id, b.bus_code, b.bus_name, b.fare, b.departure_time, s.seat_number, 
                    bk.booking_date, bk.status, bk.payment_method, bk.created_at,
                    u.full_name, u.phone
             FROM bookings bk

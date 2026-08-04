@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS buses (
     bus_name VARCHAR(100) NOT NULL,
     total_seats INT DEFAULT 4,
     fare DECIMAL(10,2) DEFAULT 500.00,
+    departure_time TIME DEFAULT NULL,
     driver_id INT DEFAULT NULL,
     current_lat DECIMAL(10,7) DEFAULT 0.0000000,
     current_lng DECIMAL(10,7) DEFAULT 0.0000000,
@@ -112,6 +113,10 @@ SET @col = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA =
 SET @sql = IF(@col = 0, 'ALTER TABLE buses ADD COLUMN driver_id INT DEFAULT NULL AFTER fare', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+SET @col = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'buses' AND COLUMN_NAME = 'departure_time');
+SET @sql = IF(@col = 0, 'ALTER TABLE buses ADD COLUMN departure_time TIME DEFAULT NULL AFTER fare', 'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
 SET @col = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'amount');
 SET @sql = IF(@col = 0, 'ALTER TABLE bookings ADD COLUMN amount DECIMAL(10,2) DEFAULT 500.00 AFTER payment_ref', 'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -134,5 +139,10 @@ INSERT INTO seats (bus_id, seat_number, status) SELECT 3, 'A1', 'available' WHER
 INSERT INTO seats (bus_id, seat_number, status) SELECT 3, 'A2', 'available' WHERE NOT EXISTS (SELECT 1 FROM seats WHERE bus_id=3 AND seat_number='A2');
 INSERT INTO seats (bus_id, seat_number, status) SELECT 3, 'A3', 'available' WHERE NOT EXISTS (SELECT 1 FROM seats WHERE bus_id=3 AND seat_number='A3');
 INSERT INTO seats (bus_id, seat_number, status) SELECT 3, 'A4', 'available' WHERE NOT EXISTS (SELECT 1 FROM seats WHERE bus_id=3 AND seat_number='A4');
+
+-- Default departure times for seeded buses (only where not already set)
+UPDATE buses SET departure_time = '08:00:00' WHERE departure_time IS NULL AND bus_code = 'BUS001';
+UPDATE buses SET departure_time = '09:00:00' WHERE departure_time IS NULL AND bus_code = 'BUS002';
+UPDATE buses SET departure_time = '10:00:00' WHERE departure_time IS NULL AND bus_code = 'BUS003';
 
 SET FOREIGN_KEY_CHECKS = 1;

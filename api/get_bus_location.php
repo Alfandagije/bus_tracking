@@ -8,7 +8,7 @@ try {
     $db = getDb();
 
     if ($bus_code) {
-        $stmt = $db->prepare("SELECT bus_code, bus_name, current_lat, current_lng, last_update FROM buses WHERE bus_code = ?");
+        $stmt = $db->prepare("SELECT bus_code, bus_name, fare, departure_time, current_lat, current_lng, last_update FROM buses WHERE bus_code = ?");
         $stmt->execute([$bus_code]);
         $bus = $stmt->fetch();
         if (!$bus) {
@@ -16,7 +16,7 @@ try {
         }
         jsonResponse(['status' => 'success', 'data' => $bus]);
     } else {
-        $stmt = $db->query("SELECT bus_code, bus_name, current_lat, current_lng, last_update FROM buses WHERE status = 'active'");
+        $stmt = $db->query("SELECT bus_code, bus_name, fare, departure_time, current_lat, current_lng, last_update FROM buses WHERE status = 'active'");
         $buses = $stmt->fetchAll();
         jsonResponse(['status' => 'success', 'data' => $buses]);
     }

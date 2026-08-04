@@ -72,7 +72,7 @@ if ($db) {
             <div class="table-container">
                 <table>
                     <thead><tr>
-                        <th>Code</th><th>Name</th><th>Route</th><th>Seats</th><th>Fare</th><th>Driver</th><th>Status</th><th>Lat</th><th>Lng</th><th>Actions</th>
+                        <th>Code</th><th>Name</th><th>Route</th><th>Seats</th><th>Fare</th><th>Departs</th><th>Driver</th><th>Status</th><th>Lat</th><th>Lng</th><th>Actions</th>
                     </tr></thead>
                     <tbody>
                         <?php foreach ($buses as $bus): ?>
@@ -82,6 +82,7 @@ if ($db) {
                             <td><?= $bus['route_name'] ? sec($bus['route_name']) : '<span style="color:#999;">Unassigned</span>' ?></td>
                             <td><?= sec($bus['total_seats']) ?></td>
                             <td>RWF <?= number_format(sec($bus['fare'] ?? 500)) ?></td>
+                            <td><?= $bus['departure_time'] ? sec(date('g:i A', strtotime($bus['departure_time']))) : '<span style="color:#999;">Not set</span>' ?></td>
                             <td><?= $bus['driver_name'] ? sec($bus['driver_name']) : '<span style="color:#999;">None</span>' ?></td>
                             <td><span class="badge badge-<?= $bus['status'] === 'active' ? 'success' : ($bus['status'] === 'maintenance' ? 'badge-warning' : 'danger') ?>"><?= sec($bus['status']) ?></span></td>
                             <td style="font-family:monospace;font-size:0.75rem;"><?= sec($bus['current_lat']) ?></td>
@@ -121,6 +122,10 @@ if ($db) {
             <input type="number" id="busFare" value="500" min="0">
         </div>
         <div class="form-group">
+            <label>Departure Time</label>
+            <input type="time" id="busDeparture" title="Daily departure time of this bus">
+        </div>
+        <div class="form-group">
             <label>Driver</label>
             <select id="busDriver">
                 <option value="">No Driver</option>
@@ -156,12 +161,12 @@ if ($db) {
 <script>
 function showAlert(msg,type){const e=document.getElementById('alertMessage');e.textContent=msg;e.className='message '+type;e.style.display='block';window.scrollTo({top:0,behavior:'smooth'});}
 function onRouteChange(){const sel=document.getElementById('busRoute');const opt=sel.options[sel.selectedIndex];if(opt.dataset.price){document.getElementById('busFare').value=opt.dataset.price;}}
-function openModal(){document.getElementById('modalTitle').textContent='Add Bus';document.getElementById('busId').value='';document.getElementById('busCode').value='';document.getElementById('busCode').disabled=false;document.getElementById('busName').value='';document.getElementById('busSeats').value='30';document.getElementById('busFare').value='500';document.getElementById('busDriver').value='';document.getElementById('busRoute').value='';document.getElementById('busStatus').value='active';document.getElementById('busModal').classList.add('active');}
+function openModal(){document.getElementById('modalTitle').textContent='Add Bus';document.getElementById('busId').value='';document.getElementById('busCode').value='';document.getElementById('busCode').disabled=false;document.getElementById('busName').value='';document.getElementById('busSeats').value='30';document.getElementById('busFare').value='500';document.getElementById('busDeparture').value='08:00';document.getElementById('busDriver').value='';document.getElementById('busRoute').value='';document.getElementById('busStatus').value='active';document.getElementById('busModal').classList.add('active');}
 function closeModal(){document.getElementById('busModal').classList.remove('active');}
-function editBus(b){document.getElementById('modalTitle').textContent='Edit Bus';document.getElementById('busId').value=b.id;document.getElementById('busCode').value=b.bus_code;document.getElementById('busCode').disabled=true;document.getElementById('busName').value=b.bus_name;document.getElementById('busSeats').value=b.total_seats;document.getElementById('busFare').value=b.fare||500;document.getElementById('busDriver').value=b.driver_id||'';document.getElementById('busRoute').value=b.route_id||'';document.getElementById('busStatus').value=b.status;document.getElementById('busModal').classList.add('active');}
+function editBus(b){document.getElementById('modalTitle').textContent='Edit Bus';document.getElementById('busId').value=b.id;document.getElementById('busCode').value=b.bus_code;document.getElementById('busCode').disabled=true;document.getElementById('busName').value=b.bus_name;document.getElementById('busSeats').value=b.total_seats;document.getElementById('busFare').value=b.fare||500;document.getElementById('busDeparture').value=b.departure_time?String(b.departure_time).substring(0,5):'';document.getElementById('busDriver').value=b.driver_id||'';document.getElementById('busRoute').value=b.route_id||'';document.getElementById('busStatus').value=b.status;document.getElementById('busModal').classList.add('active');}
 async function saveBus(){
     const id=document.getElementById('busId').value;
-    const body={bus_code:document.getElementById('busCode').value,bus_name:document.getElementById('busName').value,total_seats:parseInt(document.getElementById('busSeats').value),fare:parseFloat(document.getElementById('busFare').value),driver_id:document.getElementById('busDriver').value,route_id:document.getElementById('busRoute').value,status:document.getElementById('busStatus').value};
+    const body={bus_code:document.getElementById('busCode').value,bus_name:document.getElementById('busName').value,total_seats:parseInt(document.getElementById('busSeats').value),fare:parseFloat(document.getElementById('busFare').value),departure_time:document.getElementById('busDeparture').value,driver_id:document.getElementById('busDriver').value,route_id:document.getElementById('busRoute').value,status:document.getElementById('busStatus').value};
     if(id) body.id=parseInt(id);
     const action=id?'update':'create';
     const res=await fetch('../api/admin_manage_buses.php?action='+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});

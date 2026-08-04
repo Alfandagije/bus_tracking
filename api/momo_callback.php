@@ -45,7 +45,7 @@ try {
                ->execute([$payment['booking_id']]);
 
             $stmt = $db->prepare("
-                SELECT bk.bus_id, b.bus_name, s.seat_number, u.phone, u.full_name
+                SELECT bk.bus_id, b.bus_name, b.fare, b.departure_time, s.seat_number, u.phone, u.full_name
                 FROM bookings bk
                 JOIN buses b ON bk.bus_id = b.id
                 JOIN seats s ON bk.seat_id = s.id
@@ -56,7 +56,15 @@ try {
             $booking = $stmt->fetch();
 
             if ($booking) {
-                $msg = "Payment confirmed for booking #{$payment['booking_id']} on {$booking['bus_name']} (Seat {$booking['seat_number']}). Amount: RWF " . number_format($booking['fare'] ?? 500) . ". Status: PAID. Travel safe!";
+                $dep = $booking['departure_time'] ? date('g:i A', strtotime($booking['departure_time'])) : 'TBA';
+                $msg = "PAYMENT CONFIRMED\n";
+                $msg .= "Booking: #{$payment['booking_id']}\n";
+                $msg .= "Bus: {$booking['bus_name']}\n";
+                $msg .= "Seat: {$booking['seat_number']}\n";
+                $msg .= "Departs: {$dep}\n";
+                $msg .= "Amount: RWF " . number_format($booking['fare'] ?? 500) . "\n";
+                $msg .= "Status: PAID\n";
+                $msg .= "Travel safe!";
                 $db->prepare("INSERT INTO sms_logs (booking_id, bus_id, phone, message, status) VALUES (?, ?, ?, ?, 'pending')")
                    ->execute([$payment['booking_id'], $booking['bus_id'], $booking['phone'], $msg]);
             }

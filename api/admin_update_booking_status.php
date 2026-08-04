@@ -35,7 +35,7 @@ try {
     // Statements to reuse
     $get_booking_stmt = $db->prepare("
         SELECT bk.id, bk.status, bk.bus_id, bk.seat_id, bk.booking_date, bk.user_id, bk.amount,
-               b.bus_name, s.seat_number, u.phone
+               b.bus_name, b.departure_time, s.seat_number, u.phone
         FROM bookings bk
         JOIN buses b ON bk.bus_id = b.id
         JOIN seats s ON bk.seat_id = s.id
@@ -80,6 +80,7 @@ try {
         $bus_name = $booking['bus_name'];
         $seat_number = $booking['seat_number'];
         $phone = $booking['phone'];
+        $departure = $booking['departure_time'] ? date('g:i A', strtotime($booking['departure_time'])) : 'TBA';
 
         if ($old_status === $status) {
             $success_ids[] = $id; // No change needed but technically success
@@ -96,6 +97,7 @@ try {
             $message = "BOOKING CANCELLED\n";
             $message .= "Bus: {$bus_name}\n";
             $message .= "Seat: {$seat_number}\n";
+            $message .= "Departs: {$departure}\n";
             $message .= "ID: #{$id}\n";
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";
@@ -117,6 +119,7 @@ try {
             $message = "BOOKING REACTIVATED\n";
             $message .= "Bus: {$bus_name}\n";
             $message .= "Seat: {$seat_number}\n";
+            $message .= "Departs: {$departure}\n";
             $message .= "ID: #{$id}\n";
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";
@@ -130,6 +133,7 @@ try {
             $message = "PAYMENT CONFIRMED\n";
             $message .= "Bus: {$bus_name}\n";
             $message .= "Seat: {$seat_number}\n";
+            $message .= "Departs: {$departure}\n";
             $message .= "ID: #{$id}\n";
             $message .= "Date: {$booking_date}\n";
             $message .= "Amount: RWF " . number_format($amount) . "\n";

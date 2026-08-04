@@ -26,7 +26,7 @@ try {
     $db->beginTransaction();
 
     // Get bus
-    $stmt = $db->prepare("SELECT id, bus_name, fare FROM buses WHERE bus_code = ? AND status = 'active'");
+    $stmt = $db->prepare("SELECT id, bus_name, fare, departure_time FROM buses WHERE bus_code = ? AND status = 'active'");
     $stmt->execute([$bus_code]);
     $bus = $stmt->fetch();
 
@@ -83,12 +83,16 @@ try {
         jsonResponse(['status' => 'error', 'message' => 'Phone number not found in your profile. Please update your profile first.'], 400);
     }
     
+    $departure_time = $bus['departure_time'] ? date('g:i A', strtotime($bus['departure_time'])) : 'TBA';
+    $amount = $bus['fare'] ?? 500;
+
     $message = "BOOKING CONFIRMED\n";
     $message .= "Bus: {$bus['bus_name']} ({$bus_code})\n";
     $message .= "Seat: {$seat_number}\n";
+    $message .= "Departs: {$departure_time}\n";
     $message .= "ID: #{$booking_id}\n";
     $message .= "Date: {$booking_date}\n";
-    $message .= "Amount: RWF " . number_format($bus['fare'] ?? 500) . "\n";
+    $message .= "Amount: RWF " . number_format($amount) . "\n";
     $message .= "Payment: MTN MoMo\n";
     $message .= "Show this to driver. Travel safe!";
     
@@ -102,7 +106,9 @@ try {
         'message' => 'Booking successful! Ticket SMS will be sent shortly.',
         'booking_id' => $booking_id,
         'bus_code' => $bus_code,
-        'seat_number' => $seat_number
+        'seat_number' => $seat_number,
+        'departure_time' => $bus['departure_time'],
+        'amount' => $amount
     ], 201);
 } catch (Exception $e) {
     if ($db) {

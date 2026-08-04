@@ -109,6 +109,17 @@
 <script>
 function esc(str) { return String(str).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
 
+function formatTime(t) {
+    if (!t) return 'TBA';
+    const parts = String(t).split(':');
+    let h = parseInt(parts[0], 10);
+    if (isNaN(h)) return 'TBA';
+    const m = parts[1] || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + m + ' ' + ampm;
+}
+
 let directionsService;
 
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -337,6 +348,7 @@ async function loadBuses() {
                                     <div style="font-size:18px;margin-bottom:6px;"><img src="assets/icons/bus.svg" class="icon" style="vertical-align:middle;"> <b>${esc(bus.bus_code)}</b></div>
                                     <div style="font-size:13px;color:#5f6368;">${esc(bus.bus_name)}</div>
                                     ${bus.route_name ? '<div style="font-size:12px;color:#1a73e8;margin-top:2px;">📍 ' + esc(bus.route_name) + '</div>' : ''}
+                                    <div style="font-size:12px;color:#1a73e8;margin-top:2px;">🕒 Departs ${esc(formatTime(bus.departure_time))} • RWF ${Number(bus.fare || 0).toLocaleString()}</div>
                                     <div style="font-size:12px;color:#9aa0a6;margin-top:4px;">
                                         Lat: ${lat.toFixed(6)}<br>
                                         Lng: ${lng.toFixed(6)}
@@ -385,7 +397,7 @@ async function loadSeats(busCode) {
             const bus = busData.data;
             document.getElementById('busInfoCard').style.display = 'block';
             document.getElementById('busName').textContent = `${bus.bus_code} - ${bus.bus_name}`;
-            document.getElementById('busStatus').innerHTML = `<span class="badge badge-success">Active</span>`;
+            document.getElementById('busStatus').innerHTML = `<span class="badge badge-success">Active</span> <span class="badge badge-info">Departs ${esc(formatTime(bus.departure_time))}</span> <span class="badge badge-info">RWF ${Number(bus.fare || 0).toLocaleString()}</span>`;
             document.getElementById('lastUpdate').textContent = bus.last_update || 'Just now';
 
             if (parseFloat(bus.current_lat)) {
@@ -529,6 +541,7 @@ async function refreshSelectedBus() {
             const lng = parseFloat(bus.current_lng);
 
             document.getElementById('busName').textContent = `${bus.bus_code} - ${bus.bus_name}`;
+            document.getElementById('busStatus').innerHTML = `<span class="badge badge-success">Active</span> <span class="badge badge-info">Departs ${esc(formatTime(bus.departure_time))}</span> <span class="badge badge-info">RWF ${Number(bus.fare || 0).toLocaleString()}</span>`;
             document.getElementById('lastUpdate').textContent = bus.last_update || 'Just now';
 
             if (lat && lng) {
